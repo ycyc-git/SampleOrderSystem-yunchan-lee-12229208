@@ -52,7 +52,6 @@ class SampleControllerTest {
 
     @Test
     void run_zeroInput_returns() {
-        // should complete without hanging
         assertDoesNotThrow(() -> runWith("0\n"));
     }
 
@@ -66,7 +65,6 @@ class SampleControllerTest {
 
     @Test
     void registerSample_success_displaysConfirmation() {
-        // 1(register) → id → name → avgTime → yield → stock → 0(back)
         String output = runWith("1\nS-001\n실리콘 웨이퍼\n0.5\n0.92\n100\n0\n");
         assertTrue(output.contains("시료가 등록되었습니다."));
         assertTrue(output.contains("S-001"));
@@ -76,7 +74,6 @@ class SampleControllerTest {
 
     @Test
     void registerSample_blankId_showsErrorAndRetries() {
-        // blank id → error → valid id → rest of fields → exit
         String output = runWith("1\n\nS-001\n이름\n0.5\n0.9\n0\n0\n");
         assertTrue(output.contains("시료 ID를 입력하세요."));
         assertEquals(1, service.getAll().size());
@@ -85,7 +82,6 @@ class SampleControllerTest {
     @Test
     void registerSample_duplicateId_showsErrorAndRetries() {
         service.register("S-001", "기존", 0.5, 0.9, 10);
-
         String output = runWith("1\nS-001\nS-002\n새 시료\n0.5\n0.9\n0\n0\n");
         assertTrue(output.contains("이미 등록된 시료 ID입니다."));
         assertEquals(2, service.getAll().size());
@@ -93,7 +89,6 @@ class SampleControllerTest {
 
     @Test
     void registerSample_invalidYield_showsErrorAndRetries() {
-        // yield > 1 → error → valid yield
         String output = runWith("1\nS-001\n이름\n0.5\n1.5\n0.9\n0\n0\n");
         assertTrue(output.contains("수율은 0 초과 1 이하의 값을 입력하세요."));
         assertEquals(1, service.getAll().size());
@@ -125,7 +120,6 @@ class SampleControllerTest {
         service.register("S-001", "실리콘 웨이퍼", 0.5, 0.92, 100);
         service.register("S-002", "GaN 에피택셀", 0.3, 0.78, 50);
 
-        // enter list → any key to exit list → 0 to exit menu
         String output = runWith("2\n\n0\n");
         assertTrue(output.contains("S-001"));
         assertTrue(output.contains("실리콘 웨이퍼"));
@@ -138,8 +132,6 @@ class SampleControllerTest {
         for (int i = 1; i <= 6; i++) {
             service.register("S-00" + i, "시료" + i, 0.5, 0.9, i * 10);
         }
-
-        // enter list → N(next page) → any key to exit → 0 to exit menu
         String output = runWith("2\nN\n\n0\n");
         assertTrue(output.contains("[N] 다음페이지"));
         assertTrue(output.contains("[P] 이전페이지"));
@@ -151,7 +143,6 @@ class SampleControllerTest {
         for (int i = 1; i <= 7; i++) {
             service.register("S-00" + i, "시료" + i, 0.5, 0.9, 0);
         }
-
         String output = runWith("2\n\n0\n");
         assertTrue(output.contains("S-001"));
         assertTrue(output.contains("S-005"));
@@ -163,61 +154,180 @@ class SampleControllerTest {
         for (int i = 1; i <= 6; i++) {
             service.register("S-00" + i, "시료" + i, 0.5, 0.9, 0);
         }
-
-        // enter list → N(next) → any key → 0 exit
         String output = runWith("2\nN\n\n0\n");
         assertTrue(output.contains("S-006"));
     }
 
-    // ── 시료 검색 ─────────────────────────────────────────────────
+    // ── 시료 검색 — 속성 선택 서브메뉴 ────────────────────────────
 
     @Test
-    void searchSamples_displaysMatchingResults() {
+    void searchMenu_displaysAttributeOptions() {
+        // 3(search menu) → 0(back) → 0(exit)
+        String output = runWith("3\n0\n0\n");
+        assertTrue(output.contains("[1] ID 검색"));
+        assertTrue(output.contains("[2] 시료명 검색"));
+        assertTrue(output.contains("[3] 수율 검색"));
+        assertTrue(output.contains("[4] 재고 검색"));
+    }
+
+    @Test
+    void searchMenu_zeroInput_returnsToSampleMenu() {
+        // 3(search menu) → 0(back) → 0(exit sample menu)
+        assertDoesNotThrow(() -> runWith("3\n0\n0\n"));
+    }
+
+    @Test
+    void searchMenu_invalidInput_showsError() {
+        // 3 → 9(invalid) → 0(back) → 0(exit)
+        String output = runWith("3\n9\n0\n0\n");
+        assertTrue(output.contains("잘못된 입력입니다"));
+    }
+
+    // ── [1] ID 검색 ────────────────────────────────────────────────
+
+    @Test
+    void searchById_displaysMatchingResults() {
+        service.register("S-001", "실리콘 웨이퍼", 0.5, 0.92, 100);
+        service.register("S-002", "GaN 에피택셀", 0.3, 0.78, 50);
+        service.register("X-001", "다른 시료", 0.4, 0.7, 30);
+
+        // 3(search) → 1(ID) → keyword → 0(back) → 0(exit)
+        String output = runWith("3\n1\nS-0\n0\n0\n");
+        assertTrue(output.contains("S-001"));
+        assertTrue(output.contains("S-002"));
+        assertFalse(output.contains("X-001"));
+    }
+
+    @Test
+    void searchById_isCaseInsensitive() {
+        service.register("S-001", "A", 0.5, 0.9, 10);
+        String output = runWith("3\n1\ns-001\n0\n0\n");
+        assertTrue(output.contains("S-001"));
+    }
+
+    @Test
+    void searchById_noMatch_displaysEmptyMessage() {
+        service.register("S-001", "A", 0.5, 0.9, 10);
+        String output = runWith("3\n1\nX-999\n0\n0\n");
+        assertTrue(output.contains("검색 결과가 없습니다."));
+        assertTrue(output.contains("X-999"));
+    }
+
+    // ── [2] 시료명 검색 ────────────────────────────────────────────
+
+    @Test
+    void searchByName_displaysMatchingResults() {
         service.register("S-001", "실리콘 웨이퍼-8인치", 0.5, 0.92, 100);
         service.register("S-002", "GaN 에피택셀-4인치", 0.3, 0.78, 50);
 
-        // 3(search) → keyword → 0(back)
-        String output = runWith("3\n웨이퍼\n0\n");
+        // 3(search) → 2(name) → keyword → 0(back) → 0(exit)
+        String output = runWith("3\n2\n웨이퍼\n0\n0\n");
         assertTrue(output.contains("S-001"));
         assertTrue(output.contains("실리콘 웨이퍼-8인치"));
         assertFalse(output.contains("S-002"));
     }
 
     @Test
-    void searchSamples_displaysNoResultMessage_whenNoMatch() {
-        service.register("S-001", "실리콘 웨이퍼", 0.5, 0.92, 100);
-
-        String output = runWith("3\n없는값\n0\n");
-        assertTrue(output.contains("검색 결과가 없습니다."));
-        assertTrue(output.contains("없는값"));
-    }
-
-    @Test
-    void searchSamples_isCaseInsensitive() {
+    void searchByName_isCaseInsensitive() {
         service.register("S-001", "Silicon Wafer", 0.5, 0.9, 10);
         service.register("S-002", "GaN Epi", 0.3, 0.8, 20);
-
-        String output = runWith("3\nGAN\n0\n");
+        String output = runWith("3\n2\nGAN\n0\n0\n");
         assertTrue(output.contains("S-002"));
         assertFalse(output.contains("S-001"));
     }
 
     @Test
-    void searchSamples_emptyKeyword_returnsAll() {
+    void searchByName_noMatch_displaysEmptyMessage() {
+        service.register("S-001", "실리콘 웨이퍼", 0.5, 0.92, 100);
+        String output = runWith("3\n2\n없는값\n0\n0\n");
+        assertTrue(output.contains("검색 결과가 없습니다."));
+        assertTrue(output.contains("없는값"));
+    }
+
+    @Test
+    void searchByName_emptyKeyword_returnsAll() {
         service.register("S-001", "A", 0.5, 0.9, 10);
         service.register("S-002", "B", 0.3, 0.8, 20);
-
-        String output = runWith("3\n\n0\n");
+        String output = runWith("3\n2\n\n0\n0\n");
         assertTrue(output.contains("S-001"));
         assertTrue(output.contains("S-002"));
     }
 
     @Test
-    void searchSamples_displaysTableHeader() {
+    void searchByName_displaysTableHeader() {
         service.register("S-001", "실리콘 웨이퍼", 0.5, 0.9, 10);
-
-        String output = runWith("3\n웨이퍼\n0\n");
+        String output = runWith("3\n2\n웨이퍼\n0\n0\n");
         assertTrue(output.contains("평균 생산시간"));
         assertTrue(output.contains("현재 재고"));
+    }
+
+    // ── [3] 수율 검색 ──────────────────────────────────────────────
+
+    @Test
+    void searchByYield_displaysHighYieldSamples() {
+        service.register("S-001", "A", 0.5, 0.92, 100);
+        service.register("S-002", "B", 0.3, 0.78, 50);
+        service.register("S-003", "C", 0.8, 0.92, 0);
+
+        // 3(search) → 3(yield) → minYield → 0(back) → 0(exit)
+        String output = runWith("3\n3\n0.9\n0\n0\n");
+        assertTrue(output.contains("S-001"));
+        assertTrue(output.contains("S-003"));
+        assertFalse(output.contains("S-002"));
+        assertTrue(output.contains("수율 0.90 이상"));
+    }
+
+    @Test
+    void searchByYield_noMatch_displaysEmptyMessage() {
+        service.register("S-001", "A", 0.5, 0.78, 10);
+        String output = runWith("3\n3\n0.95\n0\n0\n");
+        assertTrue(output.contains("검색 결과가 없습니다."));
+        assertTrue(output.contains("수율 0.95 이상"));
+    }
+
+    // ── [4] 재고 검색 ──────────────────────────────────────────────
+
+    @Test
+    void searchByStock_displaysHighStockSamples() {
+        service.register("S-001", "A", 0.5, 0.9, 100);
+        service.register("S-002", "B", 0.3, 0.8, 50);
+        service.register("S-003", "C", 0.8, 0.9, 0);
+
+        // 3(search) → 4(stock) → minStock → 0(back) → 0(exit)
+        String output = runWith("3\n4\n50\n0\n0\n");
+        assertTrue(output.contains("S-001"));
+        assertTrue(output.contains("S-002"));
+        assertFalse(output.contains("S-003"));
+        assertTrue(output.contains("재고 50 ea 이상"));
+    }
+
+    @Test
+    void searchByStock_noMatch_displaysEmptyMessage() {
+        service.register("S-001", "A", 0.5, 0.9, 10);
+        String output = runWith("3\n4\n50\n0\n0\n");
+        assertTrue(output.contains("검색 결과가 없습니다."));
+        assertTrue(output.contains("재고 50 ea 이상"));
+    }
+
+    @Test
+    void searchByStock_zeroMin_returnsAll() {
+        service.register("S-001", "A", 0.5, 0.9, 100);
+        service.register("S-002", "B", 0.3, 0.8, 0);
+        String output = runWith("3\n4\n0\n0\n0\n");
+        assertTrue(output.contains("S-001"));
+        assertTrue(output.contains("S-002"));
+    }
+
+    // ── 연속 검색 ─────────────────────────────────────────────────
+
+    @Test
+    void search_consecutiveSearches_workCorrectly() {
+        service.register("S-001", "실리콘 웨이퍼", 0.5, 0.92, 100);
+        service.register("S-002", "GaN 에피택셀", 0.3, 0.78, 50);
+
+        // 3 → 2(name) → 웨이퍼 → 2(name again) → GaN → 0(back) → 0(exit)
+        String output = runWith("3\n2\n웨이퍼\n2\nGaN\n0\n0\n");
+        assertTrue(output.contains("실리콘 웨이퍼"));
+        assertTrue(output.contains("GaN 에피택셀"));
     }
 }

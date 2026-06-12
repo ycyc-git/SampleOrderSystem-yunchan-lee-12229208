@@ -43,10 +43,29 @@ public class SampleRepository {
         return new ArrayList<>(store.values());
     }
 
+    public List<Sample> findByIdContaining(String keyword) {
+        String lower = (keyword == null ? "" : keyword).toLowerCase();
+        return store.values().stream()
+                .filter(s -> s.getId().toLowerCase().contains(lower))
+                .collect(Collectors.toList());
+    }
+
     public List<Sample> findByName(String keyword) {
         String lower = (keyword == null ? "" : keyword).toLowerCase();
         return store.values().stream()
                 .filter(s -> s.getName().toLowerCase().contains(lower))
+                .collect(Collectors.toList());
+    }
+
+    public List<Sample> findByYieldAtLeast(double minYield) {
+        return store.values().stream()
+                .filter(s -> s.getYield() >= minYield)
+                .collect(Collectors.toList());
+    }
+
+    public List<Sample> findByStockAtLeast(int minStock) {
+        return store.values().stream()
+                .filter(s -> s.getStock() >= minStock)
                 .collect(Collectors.toList());
     }
 

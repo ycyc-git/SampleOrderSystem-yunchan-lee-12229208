@@ -42,6 +42,8 @@ public class SampleController {
         out.println("[1] 시료 등록    [2] 시료 목록    [3] 시료 검색    [0] 뒤로");
     }
 
+    // ── 시료 등록 ─────────────────────────────────────────────────
+
     private void registerSample() {
         out.println("----------------------------------------------------------------");
 
@@ -93,6 +95,8 @@ public class SampleController {
         out.println();
     }
 
+    // ── 시료 목록 ─────────────────────────────────────────────────
+
     private void listSamples() {
         List<Sample> all = service.getAll();
         if (all.isEmpty()) {
@@ -116,21 +120,6 @@ public class SampleController {
         }
     }
 
-    private void searchSamples() {
-        String keyword = reader.readLine("검색어 > ");
-        List<Sample> results = service.search(keyword);
-        if (results.isEmpty()) {
-            out.printf("검색 결과가 없습니다. (검색어: %s)%n", keyword);
-        } else {
-            out.printf("검색 결과  (%d종)%n%n", results.size());
-            printTableHeader();
-            for (Sample s : results) {
-                printTableRow(s);
-            }
-            out.println();
-        }
-    }
-
     private void printSamplePage(List<Sample> all, int page, int totalPages) {
         out.printf("등록 시료 목록  (총 %d종)%n%n", all.size());
         printTableHeader();
@@ -150,6 +139,68 @@ public class SampleController {
             out.println("[P] 이전페이지");
         }
     }
+
+    // ── 시료 검색 ─────────────────────────────────────────────────
+
+    private void searchSamples() {
+        while (true) {
+            printSearchMenu();
+            String input = reader.readLine("선택 > ");
+            switch (input) {
+                case "1": searchById(); break;
+                case "2": searchByName(); break;
+                case "3": searchByYield(); break;
+                case "4": searchByStock(); break;
+                case "0": return;
+                default: out.println("잘못된 입력입니다. 다시 선택하세요.");
+            }
+        }
+    }
+
+    private void printSearchMenu() {
+        out.println("================================================================");
+        out.println("[1] 시료 검색");
+        out.println("----------------------------------------------------------------");
+        out.println("[1] ID 검색       [2] 시료명 검색");
+        out.println("[3] 수율 검색     [4] 재고 검색     [0] 뒤로");
+    }
+
+    private void searchById() {
+        String keyword = reader.readLine("시료 ID (부분 일치) > ");
+        printSearchResults(service.searchById(keyword), "검색어: " + keyword);
+    }
+
+    private void searchByName() {
+        String keyword = reader.readLine("시료명 (부분 일치) > ");
+        printSearchResults(service.searchByName(keyword), "검색어: " + keyword);
+    }
+
+    private void searchByYield() {
+        double minYield = reader.readDouble("최소 수율 (0~1) > ");
+        printSearchResults(service.searchByYield(minYield),
+                String.format("수율 %.2f 이상", minYield));
+    }
+
+    private void searchByStock() {
+        int minStock = reader.readInt("최소 재고 (ea) > ");
+        printSearchResults(service.searchByStock(minStock),
+                String.format("재고 %d ea 이상", minStock));
+    }
+
+    private void printSearchResults(List<Sample> results, String criteria) {
+        if (results.isEmpty()) {
+            out.printf("검색 결과가 없습니다. (%s)%n", criteria);
+        } else {
+            out.printf("검색 결과  (%d종)  %s%n%n", results.size(), criteria);
+            printTableHeader();
+            for (Sample s : results) {
+                printTableRow(s);
+            }
+            out.println();
+        }
+    }
+
+    // ── 공통 테이블 출력 ──────────────────────────────────────────
 
     private void printTableHeader() {
         out.printf("%-12s %-20s %-14s %-8s %s%n",

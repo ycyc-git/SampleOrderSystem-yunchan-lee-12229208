@@ -38,8 +38,20 @@ public class SampleService {
         return repository.findById(id);
     }
 
-    public List<Sample> search(String keyword) {
+    public List<Sample> searchById(String keyword) {
+        return repository.findByIdContaining(keyword);
+    }
+
+    public List<Sample> searchByName(String keyword) {
         return repository.findByName(keyword);
+    }
+
+    public List<Sample> searchByYield(double minYield) {
+        return repository.findByYieldAtLeast(minYield);
+    }
+
+    public List<Sample> searchByStock(int minStock) {
+        return repository.findByStockAtLeast(minStock);
     }
 
     public List<Sample> getAll() {
