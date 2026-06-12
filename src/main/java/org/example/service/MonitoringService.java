@@ -23,6 +23,10 @@ public class MonitoringService {
         this.sampleRepository = sampleRepository;
     }
 
+    public List<Order> getOrdersByStatus(OrderStatus status) {
+        return orderRepository.findByStatus(status);
+    }
+
     public Map<OrderStatus, Long> getOrderSummaryByStatus() {
         Map<OrderStatus, Long> result = new EnumMap<>(OrderStatus.class);
         orderRepository.findAll().stream()

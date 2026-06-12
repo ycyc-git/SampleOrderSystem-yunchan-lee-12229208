@@ -125,6 +125,72 @@ class MonitoringControllerTest {
         assertTrue(output.contains("제로재고시료"));
     }
 
+    // ── [1] 주문 목록 표시 ────────────────────────────────────────
+
+    @Test
+    void run_option1_showsReservedOrderDetails() {
+        orderService.reserve("S-001", "삼성전자", 30);
+        String output = runWith("1\n0\n");
+        assertTrue(output.contains("삼성전자"));
+        assertTrue(output.contains("30 ea"));
+        assertTrue(output.contains("실리콘 웨이퍼-8인치"));
+    }
+
+    @Test
+    void run_option1_showsOrderIdInList() {
+        Order o = orderService.reserve("S-001", "고객", 10);
+        String output = runWith("1\n0\n");
+        assertTrue(output.contains(o.getOrderId()));
+    }
+
+    @Test
+    void run_option1_showsMultipleReservedOrders() {
+        orderService.reserve("S-001", "고객A", 10);
+        orderService.reserve("S-001", "고객B", 20);
+        String output = runWith("1\n0\n");
+        assertTrue(output.contains("고객A"));
+        assertTrue(output.contains("고객B"));
+    }
+
+    @Test
+    void run_option1_noTableHeaderWhenReservedEmpty() {
+        // RESERVED 0건이면 테이블 헤더("주문번호" 컬럼)가 출력되지 않아야 함
+        String output = runWith("1\n0\n");
+        // "주문번호" 헤더는 주문이 있을 때만 출력됨
+        assertFalse(output.contains("주문번호"));
+    }
+
+    @Test
+    void run_option1_showsConfirmedOrderDetails() {
+        Order o = orderService.reserve("S-001", "SK하이닉스", 50);
+        orderService.approve(o.getOrderId()); // CONFIRMED (stock 충분)
+        String output = runWith("1\n0\n");
+        assertTrue(output.contains("SK하이닉스"));
+        assertTrue(output.contains("50 ea"));
+    }
+
+    @Test
+    void run_option1_showsProducingOrderDetails() {
+        Order o = orderService.reserve("S-003", "마이크론", 80); // stock=0 → PRODUCING
+        orderService.approve(o.getOrderId());
+        String output = runWith("1\n0\n");
+        assertTrue(output.contains("마이크론"));
+        assertTrue(output.contains("제로재고시료"));
+    }
+
+    @Test
+    void run_option1_doesNotShowReleaseList() {
+        // RELEASE 상태 주문은 목록 없이 건수만 표시되므로
+        // 출고된 고객명이 주문목록에 나타나지 않아야 함
+        // (setup에는 RELEASE 주문 생성 수단이 없으므로 RELEASE 0건 확인)
+        String output = runWith("1\n0\n");
+        assertTrue(output.contains("RELEASE"));
+        // RELEASE 아래에 테이블이 없으므로 RELEASE 이후에 "주문번호" 헤더가 없어야 함
+        int releaseIdx = output.indexOf("RELEASE");
+        int headerIdx = output.indexOf("주문번호", releaseIdx);
+        assertEquals(-1, headerIdx);
+    }
+
     // ── [2] 재고량 확인 ────────────────────────────────────────────
 
     @Test

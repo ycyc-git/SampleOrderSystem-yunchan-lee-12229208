@@ -1,5 +1,6 @@
 package org.example.controller;
 
+import org.example.domain.Order;
 import org.example.domain.OrderStatus;
 import org.example.domain.StockStatusDto;
 import org.example.service.MonitoringService;
@@ -58,12 +59,33 @@ public class MonitoringController {
         Map<OrderStatus, Long> summary = service.getOrderSummaryByStatus();
         out.println("상태별 주문 현황");
         out.println();
-        printOrderLine(BLUE,    OrderStatus.RESERVED,  summary, "");
-        printOrderLine(GREEN,   OrderStatus.CONFIRMED,  summary, "");
-        printOrderLine(YELLOW,  OrderStatus.PRODUCING,  summary, "  ← 생산라인 대기");
-        printOrderLine(MAGENTA, OrderStatus.RELEASE,    summary, "");
+        printStatusSection(BLUE,   OrderStatus.RESERVED,  summary, "");
+        printStatusSection(GREEN,  OrderStatus.CONFIRMED,  summary, "");
+        printStatusSection(YELLOW, OrderStatus.PRODUCING,  summary, "  ← 생산라인 대기");
+        printOrderLine(MAGENTA, OrderStatus.RELEASE, summary, "");
         out.println();
         out.println("----------------------------------------------------------------");
+    }
+
+    private void printStatusSection(String color, OrderStatus status,
+                                    Map<OrderStatus, Long> summary, String note) {
+        printOrderLine(color, status, summary, note);
+        List<Order> orders = service.getOrdersByStatus(status);
+        if (!orders.isEmpty()) {
+            out.printf("  %-4s %-20s %-14s %-20s %s%n",
+                    "번호", "주문번호", "고객", "시료", "수량");
+            out.println("  ---- -------------------- -------------- -------------------- ----------");
+            for (int i = 0; i < orders.size(); i++) {
+                Order o = orders.get(i);
+                out.printf("  %-4d %-20s %-14s %-20s %d ea%n",
+                        i + 1,
+                        o.getOrderId(),
+                        o.getCustomerName(),
+                        o.getSample().getName(),
+                        o.getQuantity());
+            }
+        }
+        out.println();
     }
 
     private void printOrderLine(String color, OrderStatus status,

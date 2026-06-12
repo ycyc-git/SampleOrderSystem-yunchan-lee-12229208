@@ -38,6 +38,45 @@ class MonitoringServiceTest {
         sampleRepo.add(new Sample("S-003", "제로재고", 0.8, 0.85, 0));
     }
 
+    // ── getOrdersByStatus ─────────────────────────────────────────
+
+    @Test
+    void getOrdersByStatus_returnsEmpty_whenNone() {
+        assertTrue(service.getOrdersByStatus(OrderStatus.RESERVED).isEmpty());
+    }
+
+    @Test
+    void getOrdersByStatus_returnsReservedOrders() {
+        orderService.reserve("S-001", "고객1", 10);
+        orderService.reserve("S-001", "고객2", 20);
+        List<Order> result = service.getOrdersByStatus(OrderStatus.RESERVED);
+        assertEquals(2, result.size());
+        assertTrue(result.stream().allMatch(o -> o.getStatus() == OrderStatus.RESERVED));
+    }
+
+    @Test
+    void getOrdersByStatus_returnsOnlyMatchingStatus() {
+        Order r1 = orderService.reserve("S-001", "고객1", 10);
+        orderService.approve(r1.getOrderId()); // → CONFIRMED
+        orderService.reserve("S-001", "고객2", 5); // RESERVED
+
+        List<Order> confirmed = service.getOrdersByStatus(OrderStatus.CONFIRMED);
+        assertEquals(1, confirmed.size());
+        assertEquals(OrderStatus.CONFIRMED, confirmed.get(0).getStatus());
+
+        List<Order> reserved = service.getOrdersByStatus(OrderStatus.RESERVED);
+        assertEquals(1, reserved.size());
+    }
+
+    @Test
+    void getOrdersByStatus_returnsProducingOrders() {
+        Order o = orderService.reserve("S-002", "고객", 200); // stock=50 < 200 → PRODUCING
+        orderService.approve(o.getOrderId());
+        List<Order> result = service.getOrdersByStatus(OrderStatus.PRODUCING);
+        assertEquals(1, result.size());
+        assertEquals(OrderStatus.PRODUCING, result.get(0).getStatus());
+    }
+
     // ── getOrderSummaryByStatus ───────────────────────────────────
 
     @Test
