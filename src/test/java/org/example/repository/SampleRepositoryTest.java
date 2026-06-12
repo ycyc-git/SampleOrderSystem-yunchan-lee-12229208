@@ -98,4 +98,50 @@ class SampleRepositoryTest {
 
         assertTrue(file.toFile().exists());
     }
+
+    // ── findByName ────────────────────────────────────────────────
+
+    @Test
+    void findByName_matchesPartialName() {
+        repo.add(new Sample("S-001", "실리콘 웨이퍼-8인치", 0.5, 0.92, 100));
+        repo.add(new Sample("S-002", "GaN 에피택셀-4인치", 0.3, 0.78, 50));
+        repo.add(new Sample("S-003", "SiC 파워기판-6인치", 0.8, 0.92, 0));
+
+        List<Sample> result = repo.findByName("웨이퍼");
+        assertEquals(1, result.size());
+        assertEquals("S-001", result.get(0).getId());
+    }
+
+    @Test
+    void findByName_isCaseInsensitive() {
+        repo.add(new Sample("S-001", "Silicon Wafer", 0.5, 0.9, 10));
+        repo.add(new Sample("S-002", "GaN Epi", 0.3, 0.8, 20));
+
+        List<Sample> result = repo.findByName("GAN");
+        assertEquals(1, result.size());
+        assertEquals("S-002", result.get(0).getId());
+    }
+
+    @Test
+    void findByName_returnsEmpty_forNoMatch() {
+        repo.add(new Sample("S-001", "실리콘 웨이퍼", 0.5, 0.9, 10));
+        assertTrue(repo.findByName("없는값").isEmpty());
+    }
+
+    @Test
+    void findByName_emptyKeyword_returnsAll() {
+        repo.add(new Sample("S-001", "A", 0.5, 0.9, 10));
+        repo.add(new Sample("S-002", "B", 0.3, 0.8, 20));
+        assertEquals(2, repo.findByName("").size());
+    }
+
+    @Test
+    void findByName_matchesMultiple() {
+        repo.add(new Sample("S-001", "실리콘 웨이퍼-8인치", 0.5, 0.92, 100));
+        repo.add(new Sample("S-002", "GaN 에피택셀-4인치", 0.3, 0.78, 50));
+        repo.add(new Sample("S-003", "SiC 파워기판-6인치", 0.8, 0.92, 0));
+
+        List<Sample> result = repo.findByName("인치");
+        assertEquals(3, result.size());
+    }
 }

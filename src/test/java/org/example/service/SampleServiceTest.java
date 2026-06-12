@@ -119,4 +119,35 @@ class SampleServiceTest {
         assertTrue(service.findById("S-001").isPresent());
         assertTrue(service.findById("X-999").isEmpty());
     }
+
+    // ── search ────────────────────────────────────────────────────
+
+    @Test
+    void search_returnsMatchingResults() {
+        service.register("S-001", "실리콘 웨이퍼", 0.5, 0.9, 10);
+        service.register("S-002", "GaN 에피택셀", 0.3, 0.8, 20);
+        List<Sample> result = service.search("웨이퍼");
+        assertEquals(1, result.size());
+        assertEquals("S-001", result.get(0).getId());
+    }
+
+    @Test
+    void search_isCaseInsensitive() {
+        service.register("S-001", "Silicon Wafer", 0.5, 0.9, 10);
+        List<Sample> result = service.search("SILICON");
+        assertEquals(1, result.size());
+    }
+
+    @Test
+    void search_returnsEmpty_forNoMatch() {
+        service.register("S-001", "실리콘 웨이퍼", 0.5, 0.9, 10);
+        assertTrue(service.search("없는값").isEmpty());
+    }
+
+    @Test
+    void search_emptyKeyword_returnsAll() {
+        service.register("S-001", "A", 0.5, 0.9, 10);
+        service.register("S-002", "B", 0.3, 0.8, 20);
+        assertEquals(2, service.search("").size());
+    }
 }

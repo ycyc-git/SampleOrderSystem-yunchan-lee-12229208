@@ -10,6 +10,7 @@ import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class SampleRepository {
 
@@ -40,6 +41,13 @@ public class SampleRepository {
 
     public List<Sample> findAll() {
         return new ArrayList<>(store.values());
+    }
+
+    public List<Sample> findByName(String keyword) {
+        String lower = (keyword == null ? "" : keyword).toLowerCase();
+        return store.values().stream()
+                .filter(s -> s.getName().toLowerCase().contains(lower))
+                .collect(Collectors.toList());
     }
 
     public void save(Sample sample) {

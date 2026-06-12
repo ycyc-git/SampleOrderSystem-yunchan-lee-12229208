@@ -28,7 +28,7 @@ public class SampleController {
             switch (input) {
                 case "1": registerSample(); break;
                 case "2": listSamples(); break;
-                case "3": out.println("\n[준비 중입니다.]\n"); break;
+                case "3": searchSamples(); break;
                 case "0": return;
                 default:  out.println("잘못된 입력입니다. 다시 선택하세요.");
             }
@@ -116,22 +116,29 @@ public class SampleController {
         }
     }
 
+    private void searchSamples() {
+        String keyword = reader.readLine("검색어 > ");
+        List<Sample> results = service.search(keyword);
+        if (results.isEmpty()) {
+            out.printf("검색 결과가 없습니다. (검색어: %s)%n", keyword);
+        } else {
+            out.printf("검색 결과  (%d종)%n%n", results.size());
+            printTableHeader();
+            for (Sample s : results) {
+                printTableRow(s);
+            }
+            out.println();
+        }
+    }
+
     private void printSamplePage(List<Sample> all, int page, int totalPages) {
         out.printf("등록 시료 목록  (총 %d종)%n%n", all.size());
-        out.printf("%-12s %-20s %-14s %-8s %s%n",
-                "ID", "시료명", "평균 생산시간", "수율", "현재 재고");
-        out.println("------------ -------------------- -------------- -------- ----------");
+        printTableHeader();
 
         int from = page * PAGE_SIZE;
         int to = Math.min(from + PAGE_SIZE, all.size());
         for (int i = from; i < to; i++) {
-            Sample s = all.get(i);
-            out.printf("%-12s %-20s %-14s %-8s %d ea%n",
-                    s.getId(),
-                    s.getName(),
-                    String.format("%.1f min/ea", s.getAvgProductionTime()),
-                    String.format("%.2f", s.getYield()),
-                    s.getStock());
+            printTableRow(all.get(i));
         }
         out.println();
 
@@ -142,5 +149,20 @@ public class SampleController {
         if (page > 0) {
             out.println("[P] 이전페이지");
         }
+    }
+
+    private void printTableHeader() {
+        out.printf("%-12s %-20s %-14s %-8s %s%n",
+                "ID", "시료명", "평균 생산시간", "수율", "현재 재고");
+        out.println("------------ -------------------- -------------- -------- ----------");
+    }
+
+    private void printTableRow(Sample s) {
+        out.printf("%-12s %-20s %-14s %-8s %d ea%n",
+                s.getId(),
+                s.getName(),
+                String.format("%.1f min/ea", s.getAvgProductionTime()),
+                String.format("%.2f", s.getYield()),
+                s.getStock());
     }
 }

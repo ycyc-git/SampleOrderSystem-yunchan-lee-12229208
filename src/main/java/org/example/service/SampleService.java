@@ -38,6 +38,10 @@ public class SampleService {
         return repository.findById(id);
     }
 
+    public List<Sample> search(String keyword) {
+        return repository.findByName(keyword);
+    }
+
     public List<Sample> getAll() {
         return repository.findAll();
     }
