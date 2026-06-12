@@ -42,13 +42,11 @@ public class OrderController {
         }
         out.println("등록된 시료 목록");
         out.println();
-        out.printf("%-10s %-26s %-12s %-10s %s%n", "ID", "시료명", "생산시간(min)", "수율", "재고");
-        out.println("---------- -------------------------- ------------ ---------- ----------");
+        out.printf("%-10s %-26s %s%n", "ID", "시료명", "재고");
+        out.println("---------- -------------------------- ----------");
         for (Sample s : allSamples) {
-            out.printf("%-10s %-26s %-12.1f %-10.0f%% %d ea%n",
-                    s.getId(), s.getName(),
-                    s.getAvgProductionTime(), s.getYield() * 100,
-                    s.getStock());
+            out.printf("%-10s %-26s %d ea%n",
+                    s.getId(), s.getName(), s.getStock());
         }
         out.println();
         out.println("※ 시료 ID를 입력하세요. 빈 칸으로 엔터 시 뒤로 돌아갑니다.");

@@ -193,9 +193,9 @@ class OrderControllerTest {
     @Test
     void run_showsSampleListHeader() {
         String output = runWith("S-001\n삼성전자\n30\nY\n");
-        assertTrue(output.contains("생산시간(min)"));
-        assertTrue(output.contains("수율"));
         assertTrue(output.contains("재고"));
+        assertFalse(output.contains("생산시간"));
+        assertFalse(output.contains("수율"));
     }
 
     @Test
