@@ -162,8 +162,10 @@ Service: OrderService.approve(orderId)
   7. sample = order.sample
   8. shortage = max(0, order.quantity - sample.stock)
   9. shortage == 0 이므로:
-       sample.stock -= order.quantity          // 재고 차감
-       order.transition(CONFIRMED)             // 상태 전이
+       sample.reservedStock += order.quantity  // 가용 재고 → 예약 재고로 이동
+       sample.stock         -= order.quantity
+       SampleRepository.save(sample)
+       order.transition(CONFIRMED)
        OrderRepository.save(order)
 
 Controller
@@ -172,6 +174,7 @@ Controller
 
 **사후 상태**
 - `sample.stock` 감소 (order.quantity 만큼)
+- `sample.reservedStock` 증가 (order.quantity 만큼) — 출고 대기 예약 재고
 - `order.status` = CONFIRMED
 
 ---
@@ -193,6 +196,11 @@ Controller
 Service: OrderService.approve(orderId)
   5~8. (DF-05 동일)
   9. shortage > 0 이므로:
+       available = sample.stock
+       if available > 0:
+           sample.reservedStock += available  // 가용 재고 전량 예약으로 이동
+           sample.stock          = 0
+           SampleRepository.save(sample)
        order.transition(PRODUCING)
        OrderRepository.save(order)
        ProductionLineService.enqueue(order, shortage)   // 생산 큐 등록
@@ -211,7 +219,8 @@ Controller
 **사후 상태**
 - `order.status` = PRODUCING
 - `ProductionLineService.jobQueue`에 ProductionJob 추가
-- `sample.stock` 변동 없음 (생산 완료 후 증가)
+- `sample.stock` 감소 (기존 가용 재고 전량 → reservedStock으로 이동)
+- `sample.reservedStock` 증가 (기존 가용 재고 만큼)
 
 ---
 
@@ -256,7 +265,13 @@ ProductionLineService.tick()  [synchronized]
   6. elapsed < totalMs → return (진행 중)
 
   7. elapsed >= totalMs → 생산 완료:
-       a. currentJob.order.sample.stock += currentJob.actualProductionQty
+       shortage  = currentJob.shortage
+       actualQty = currentJob.actualProductionQty
+       a. sample.stock         += (actualQty - shortage)   // 생산 잉여분 → 가용 재고
+          sample.reservedStock += shortage                 // 부족분 → 예약 재고
+          SampleRepository.save(sample)
+          ※ 승인 시 기존 가용 재고도 reservedStock으로 이동됐으므로
+            완료 후 reservedStock = 기존예약 + shortage = order.quantity 전량 확보
        b. currentJob.order.transition(CONFIRMED)
        c. OrderRepository.save(currentJob.order)
        d. jobQueue.poll()                    // 완료 작업 제거
@@ -281,9 +296,10 @@ getEstimatedFinishTime():
 - `sample.stock` 변경은 Sample 객체 자체에 `synchronized` 또는 Service 레벨 락
 
 **사후 상태 (완료 시)**
-- `sample.stock` 증가 (actualProductionQty 만큼)
+- `sample.stock` 증가 (actualProductionQty - shortage 만큼, 생산 잉여분)
+- `sample.reservedStock` 증가 (shortage 만큼, 부족분 → 예약)
 - `order.status` = CONFIRMED
-- `jobQueue`에서 해당 JobPoll 제거
+- `jobQueue`에서 해당 Job 제거
 
 ---
 
@@ -301,11 +317,12 @@ Service: ReleaseService.release(orderId)
   4. OrderRepository.findById(orderId) → Order
   5. order.status != CONFIRMED 이면 throw IllegalStateException
   6. sample = order.sample
-  7. sample.stock < order.quantity 이면 throw IllegalStateException (재고 부족)
-  8. sample.stock -= order.quantity
+  7. sample.reservedStock < order.quantity 이면 throw IllegalStateException (예약 재고 부족)
+     ※ 정상 흐름에서는 approve() 시 reservedStock을 확보하므로 이 오류는 발생하지 않음
+  8. sample.reservedStock -= order.quantity  // 예약 재고 차감 (가용 재고 불변)
   9. order.transition(RELEASE)
   10. order.releasedAt = LocalDateTime.now()
-  11. OrderRepository.save(order), SampleRepository.save(sample)
+  11. SampleRepository.save(sample), OrderRepository.save(order)
 
 Controller (성공)
   12. 주문번호, 출고수량, 처리일시, "CONFIRMED → [RELEASE]" 출력
@@ -321,11 +338,22 @@ Controller (재고 부족 예외 catch)
 
 Service: ReleaseService.requeueToProducing(orderId)
   15. order.status != CONFIRMED 이면 throw IllegalStateException
-  16. shortage = order.quantity - sample.stock
-  17. shortage <= 0 이면 throw IllegalStateException (재고 충분, 재생산 불필요)
-  18. order.transition(PRODUCING)
-  19. OrderRepository.save(order)
-  20. ProductionLineService.enqueue(order, shortage)
+  16. // 예약 재고 반환
+      toReturn = min(sample.reservedStock, order.quantity)
+      sample.reservedStock -= toReturn
+      sample.stock         += toReturn
+      SampleRepository.save(sample)
+  17. shortage = order.quantity - sample.stock
+  18. shortage <= 0 이면 throw IllegalStateException (재고 충분, 재생산 불필요)
+  19. // 가용 재고를 다시 예약으로 이동
+      newReserve = min(sample.stock, order.quantity)
+      if newReserve > 0:
+          sample.reservedStock += newReserve
+          sample.stock         -= newReserve
+          SampleRepository.save(sample)
+  20. order.transition(PRODUCING)
+  21. OrderRepository.save(order)
+  22. ProductionLineService.enqueue(order, shortage)
 
 Controller (Y 완료)
   21. "상태 변경  CONFIRMED → [PRODUCING]" + 주문번호 + "생산 큐에 등록되었습니다." 출력
@@ -342,14 +370,14 @@ Controller (Y 완료)
 | 재고 부족 + N | 변경 없음 (CONFIRMED 유지) |
 
 **사후 상태 (출고 성공)**
-- `sample.stock` 감소 (order.quantity 만큼)
+- `sample.reservedStock` 감소 (order.quantity 만큼) — 가용 재고 불변
 - `order.status` = RELEASE
 - `order.releasedAt` 기록
 
 **사후 상태 (재생산 큐 등록)**
 - `order.status` = PRODUCING
 - `ProductionLineService` 큐에 ProductionJob 추가
-- `sample.stock` 변동 없음
+- `sample.stock`, `sample.reservedStock` 재계산 (예약 반환 후 재예약)
 
 ---
 
@@ -371,13 +399,15 @@ Service: MonitoringService.getOrderSummaryByStatus()
 Service: MonitoringService.getStockStatus()
   7. SampleRepository.findAll() 전체 순회
   8. 각 Sample 에 대해:
-       pendingDemand = OrderRepository.findByStatus(RESERVED) + findByStatus(PRODUCING)
-                       중 해당 sample 주문의 quantity 합계
-       stockLabel    = 고갈/부족/여유 판정
-       remainingRate = stock == 0 && pendingDemand == 0 ? 0
-                     : stock + pendingDemand == 0 ? 0
+       stock         = sample.stock          // 신규 주문에 가용한 재고
+       reservedStock = sample.reservedStock  // 승인된 주문에 예약된 재고
+       pendingDemand = OrderRepository.findByStatus(RESERVED) 중
+                       해당 sample 주문의 quantity 합계
+                       ※ CONFIRMED/PRODUCING은 이미 reservedStock으로 관리되므로 제외
+       stockLabel    = 고갈/부족/여유 판정 (stock 기준)
+       remainingRate = (stock + pendingDemand == 0) ? 0
                      : (int)(stock * 100.0 / (stock + pendingDemand))
-  9. List<StockStatusDto> 반환
+  9. List<StockStatusDto>(sample, stock, reservedStock, pendingDemand, ...) 반환
 
 Controller
   10. 상태 배지 컬러 적용 후 출력
@@ -397,7 +427,7 @@ Controller
 | RESERVED    | —        | ✅        | ✅         | ✅         | ❌       |
 | REJECTED    | ❌        | —        | ❌         | ❌         | ❌       |
 | PRODUCING   | ❌        | ❌        | —         | ✅         | ❌       |
-| CONFIRMED   | ❌        | ❌        | ❌         | —         | ✅       |
+| CONFIRMED   | ❌        | ❌        | ✅         | —         | ✅       |
 | RELEASE     | ❌        | ❌        | ❌         | ❌         | —       |
 
 불허 전이 시 `InvalidOrderStateException` throw.

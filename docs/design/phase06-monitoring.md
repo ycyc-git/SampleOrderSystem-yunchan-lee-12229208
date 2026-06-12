@@ -12,7 +12,7 @@ Phase 05 완료 (RESERVED / CONFIRMED / PRODUCING / REJECTED 상태가 존재)
 
 | 클래스 | 역할 |
 |--------|------|
-| `StockStatusDto` | sample, stock, pendingDemand, stockLabel, remainingRate |
+| `StockStatusDto` | sample, stock, reservedStock, pendingDemand, stockLabel, remainingRate |
 | `MonitoringService` | `getOrderSummaryByStatus()`, `getStockStatus()` |
 | `MonitoringController` | `[4]` 모니터링 연결, 서브메뉴 [1][2][0] |
 
@@ -26,15 +26,20 @@ OrderRepository.findAll() 에서 REJECTED 제외
 **MonitoringService.getStockStatus()**
 ```
 각 Sample에 대해:
-  pendingDemand = RESERVED + PRODUCING 주문 중 해당 sample의 quantity 합계
+  stock         = sample.stock          // 신규 주문에 가용한 재고
+  reservedStock = sample.reservedStock  // 승인된 주문에 예약된 재고 (출고 대기)
+  pendingDemand = RESERVED 주문 중 해당 sample의 quantity 합계
+                  ※ CONFIRMED/PRODUCING 제외 (해당 재고는 이미 reservedStock으로 이동됨)
   stockLabel    = stock==0 ? "고갈" : stock < pendingDemand ? "부족" : "여유"
   remainingRate = (stock + pendingDemand == 0) ? 0
                 : (int)(stock * 100.0 / (stock + pendingDemand))
 ```
 
 **화면 출력** (→ screen-specs.md SCR-4 참조)
-- `[1]` 선택: 주문 현황(배지 + 건수) + 재고 현황(시료명/재고/레이블배지/진행바) 통합 표시
+- `[1]` 선택: 주문 현황(배지 + 건수 + 상태별 주문 LIST) + 재고 현황 통합 표시
+  - 주문 LIST: RESERVED, CONFIRMED, PRODUCING 각각 표시 (RELEASE 제외)
 - `[2]` 선택: 재고 현황만 표시
+- 재고 현황 컬럼: 시료명 / 가용 재고(stock) / 예약 재고(reservedStock, 노란색) / 상태 / 잔여율
 - 진행 바: `floor(remainingRate / 10)` 개의 `█` + 나머지 `░` (10칸)
 
 ---
@@ -47,11 +52,13 @@ OrderRepository.findAll() 에서 REJECTED 제외
 2. 메인 → [4] 모니터링 → [1] 주문량 확인
 3. 상태별 주문 현황 확인:
    - RESERVED, CONFIRMED, PRODUCING, RELEASE 건수 표시
+   - 각 상태별 주문 목록 (번호/주문번호/고객/시료/수량) 표시 확인
    - REJECTED는 표시 안됨 확인
    - PRODUCING 옆 "← 생산라인 대기" 주석 확인
 4. 재고 현황 확인:
-   - S-001: 재고 70, 여유, 진행 바 표시
-   - S-003: 재고 0, 고갈, 진행 바 0%
+   - S-001: 가용 재고 70, 예약 재고 30 (승인된 경우), 여유, 진행 바 표시
+   - S-003: 가용 재고 0, 예약 재고 0, 고갈, 진행 바 0%
+   - 예약 재고 > 0인 경우 노란색으로 표시
 5. [2] 재고량 확인 → 재고 현황만 단독 표시 확인
 6. [0] 뒤로 → 메인 복귀
 ```
@@ -60,9 +67,12 @@ OrderRepository.findAll() 에서 REJECTED 제외
 
 ## 완료 기준
 
-- [ ] `StockStatusDto` 및 `MonitoringService` 구현
+- [ ] `StockStatusDto` 및 `MonitoringService` 구현 (stock, reservedStock, pendingDemand 포함)
 - [ ] 상태별 주문 수 집계 (REJECTED 제외)
-- [ ] 재고 레이블 판정 (여유/부족/고갈)
+- [ ] 상태별 주문 목록 표시 (RESERVED/CONFIRMED/PRODUCING, RELEASE 제외)
+- [ ] pendingDemand: RESERVED 주문만 포함 (CONFIRMED/PRODUCING은 reservedStock으로 관리)
+- [ ] 재고 레이블 판정 (여유/부족/고갈) — stock 기준
 - [ ] 잔여율 계산 및 진행 바 출력 (10칸)
+- [ ] 재고 화면: 가용 재고 + 예약 재고(노란색) 컬럼 표시
 - [ ] `[1]` 통합 화면, `[2]` 재고 단독 화면
 - [ ] 배지 컬러 (ANSI escape code): RESERVED(파랑), CONFIRMED(초록), PRODUCING(주황), RELEASE(보라), 여유(초록), 부족(주황), 고갈(빨강)

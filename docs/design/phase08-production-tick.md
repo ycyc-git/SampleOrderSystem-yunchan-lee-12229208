@@ -26,7 +26,12 @@ Phase 07 완료
               ※ 시연 모드: * 1000 (분→초 가속, 구현 시 상수로 선택)
 5. elapsed < totalMs → return
 6. 완료:
-   a. sample.stock += actualProductionQty
+   a. shortage  = currentJob.shortage           // 승인 시 계산된 부족분
+      actualQty = currentJob.actualProductionQty
+      sample.stock         += (actualQty - shortage)  // 생산 잉여분만 가용 재고
+      sample.reservedStock += shortage                // 부족분은 예약 재고로 이동
+      ※ 승인 시 기존 가용 재고는 이미 reservedStock으로 이동됨
+        생산 완료 후 reservedStock = 기존예약 + shortage = order.quantity 전량 확보
    b. order.transition(CONFIRMED)
    c. OrderRepository.save(order)
    d. jobQueue.poll()
@@ -74,7 +79,7 @@ return LocalTime.now().plusSeconds(remainMs / 1000)
 
 4. [4] 모니터링 → 주문 상태가 PRODUCING → CONFIRMED로 변경 확인
 
-5. S-003 재고 증가 확인 (61 ea 추가됨)
+5. S-003 확인: 가용 재고 = actualQty - shortage = 잉여분, 예약 재고 = shortage (61 ea)
 
 6. 메인 "생산라인 N건 대기" 감소 확인
 
@@ -88,7 +93,7 @@ return LocalTime.now().plusSeconds(remainMs / 1000)
 - [ ] `tick()` 완료 조건 및 상태 전환 구현
 - [ ] `ScheduledExecutorService` 1초 주기 연동
 - [ ] 진행률 `getProgressPercent()` 및 `getEstimatedFinishTime()` 동작
-- [ ] 생산 완료 시 `sample.stock` 증가 및 `order.status` = CONFIRMED
+- [ ] 생산 완료 시 `sample.stock` += (actualQty - shortage), `sample.reservedStock` += shortage, `order.status` = CONFIRMED
 - [ ] 다음 대기 작업 자동 시작
 - [ ] 동기화 — 콘솔 루프와 tick 간 race condition 없음
 - [ ] 앱 종료 시 스케줄러 정상 shutdown

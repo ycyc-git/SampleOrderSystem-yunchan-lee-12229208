@@ -18,22 +18,31 @@ Phase 08 완료 권장 (생산 완료 후 CONFIRMED된 주문도 출고 가능�
 
 **ReleaseService.release()**
 ```
+※ 재고는 approve() 시점에 reservedStock으로 이미 확보됨
 1. order.status != CONFIRMED → IllegalStateException
-2. sample.stock < order.quantity → IllegalStateException (재고 부족)
-3. sample.stock -= order.quantity
+2. sample.reservedStock < order.quantity → IllegalStateException (예약 재고 부족)
+3. sample.reservedStock -= order.quantity   // 예약 재고 차감 (가용 재고 불변)
 4. order.transition(RELEASE)
 5. order.releasedAt = LocalDateTime.now()
-6. OrderRepository.save(order), SampleRepository.save(sample)
+6. SampleRepository.save(sample), OrderRepository.save(order)
 ```
 
 **ReleaseService.requeueToProducing()**
 ```
 1. order.status != CONFIRMED → IllegalStateException
-2. shortage = order.quantity - sample.stock
-3. shortage <= 0 → IllegalStateException (재고 충분, 재생산 불필요)
-4. order.transition(PRODUCING)
-5. OrderRepository.save(order)
-6. ProductionLineService.enqueue(order, shortage)
+2. // 예약 반환: reservedStock → stock으로 복원
+   toReturn = min(sample.reservedStock, order.quantity)
+   sample.reservedStock -= toReturn
+   sample.stock         += toReturn
+3. shortage = order.quantity - sample.stock
+4. shortage <= 0 → IllegalStateException (재고 충분, 재생산 불필요)
+5. // 가용 재고를 다시 예약으로 이동
+   newReserve = min(sample.stock, order.quantity)
+   sample.reservedStock += newReserve
+   sample.stock         -= newReserve
+6. order.transition(PRODUCING)
+7. OrderRepository.save(order)
+8. ProductionLineService.enqueue(order, shortage)
 ```
 
 **Order 상태 전이 추가**
@@ -56,11 +65,13 @@ CONFIRMED 목록(번호 선택)
 
 ```
 시나리오 A — 재고 충분 승인 후 즉시 출고
-1. S-001 (재고 100) 주문 30ea → 승인 → CONFIRMED
+1. S-001 (가용 재고 100) 주문 30ea → 승인 → CONFIRMED
+   ※ 승인 시: 가용 재고 100 → 70, 예약 재고 0 → 30
 2. 메인 → [6] 출고 처리
 3. 목록에서 해당 주문 번호 선택
 4. 완료 화면: 주문번호, 출고수량 30ea, 처리일시, CONFIRMED → [RELEASE] 확인
-5. [4] 모니터링 → RELEASE 1건 증가, S-001 재고 감소 확인
+5. [4] 모니터링 → RELEASE 1건 증가, S-001 예약 재고 30 → 0 감소 확인
+   (가용 재고는 70 그대로)
 
 시나리오 B — 생산 완료 후 출고 (Phase 08 이후)
 1. S-003 (재고 0) 주문 50ea → 승인 → PRODUCING

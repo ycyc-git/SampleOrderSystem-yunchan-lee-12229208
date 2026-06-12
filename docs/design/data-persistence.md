@@ -44,10 +44,15 @@ data/
     "name": "실리콘 웨이퍼-8인치",
     "avgProductionTime": 0.5,
     "yield": 0.92,
-    "stock": 100
+    "stock": 70,
+    "reservedStock": 30
   }
 ]
 ```
+
+- `stock`: 신규 주문에 가용한 재고 (approve 시 감소)
+- `reservedStock`: 승인된 주문에 예약된 재고 (approve 시 증가, release 시 감소)
+- 기존 JSON에 `reservedStock` 필드가 없으면 Gson이 0으로 역직렬화 (하위 호환)
 
 ### orders.json
 
@@ -165,8 +170,8 @@ for (OrderDto dto : dtos) {
 | `OrderRepository` | `save()` 호출 시 (상태 전이 포함) |
 | `ProductionLineService` | `enqueue()`, `tick()` 완료 시 |
 
-`Sample.stock`은 주문 승인·생산 완료 시 변경되므로,  
-`OrderService`와 `ProductionLineService`에서 변경 후 `SampleRepository.save(sample)`를 호출한다.
+`Sample.stock`과 `Sample.reservedStock`은 주문 승인·생산 완료·출고 시 변경되므로,  
+`OrderService`, `ProductionLineService`, `ReleaseService`에서 변경 후 `SampleRepository.save(sample)`를 호출한다.
 
 ---
 

@@ -26,9 +26,24 @@ totalTime(min) = sample.avgProductionTime * actualQty     // shortage > 0 일 �
 
 **OrderService.approve() 처리 분기**
 ```
-shortage == 0 → sample.stock -= quantity → order.transition(CONFIRMED)
-shortage  > 0 → order.transition(PRODUCING)
-               ※ 생산 큐 등록은 Phase 07에서 추가
+shortage = max(0, order.quantity - sample.stock)
+
+shortage == 0 →
+    sample.reservedStock += order.quantity   // 가용 재고 → 예약 재고로 이동
+    sample.stock         -= order.quantity
+    order.transition(CONFIRMED)
+
+shortage  > 0 →
+    available = sample.stock
+    if available > 0:
+        sample.reservedStock += available    // 가용 재고 전부 예약으로 이동
+        sample.stock          = 0
+    order.transition(PRODUCING)
+    ProductionLineService.enqueue(order, shortage)
+    ※ 생산 큐 등록은 Phase 07에서 추가됨
+
+※ 재고 차감은 release() 시점이 아닌 approve() 시점에 발생
+   (가용→예약 이동). release()는 reservedStock만 차감.
 ```
 
 **OrderService.reject()**
@@ -55,13 +70,14 @@ RESERVED 목록(번호 선택) → 재고 분석 자동 표시 → [Y] 승인 / 
 
 ```
 시나리오 A — 재고 충분 → CONFIRMED
-1. Phase 02~04 데이터 유지 (S-001 재고 100, 주문 30ea)
+1. Phase 02~04 데이터 유지 (S-001 가용 재고 100, 주문 30ea)
 2. 메인 → [3] 주문 승인/거절
 3. RESERVED 목록 확인 (S-001 30ea 주문 포함)
 4. 해당 번호 선택
 5. 재고 분석: 현재 재고 100, 부족분 0 → "재고 충분" 표시 확인
 6. [Y] → RESERVED → [CONFIRMED] 상태 변경 확인
-7. 메인 복귀 → S-001 재고가 70으로 감소했는지 확인 (총 재고 감소)
+7. 메인 복귀 → S-001 가용 재고 70, 예약 재고 30으로 변경됐는지 확인
+   ※ 가용 재고가 줄고 예약 재고가 증가 (합계 100 유지)
 
 시나리오 B — 재고 부족 → PRODUCING
 1. S-003 (재고 0) 주문 50ea 접수
@@ -82,6 +98,6 @@ RESERVED 목록(번호 선택) → 재고 분석 자동 표시 → [Y] 승인 / 
 - [ ] `Order.transition()` 상태 전이 검증
 - [ ] `analyzeStock()` 계산 (재고, 부족분, 실생산량, 총 시간)
 - [ ] 재고 분석 화면 자동 표시 (재고 충분/부족 분기 메시지)
-- [ ] 승인 → CONFIRMED (재고 차감) / PRODUCING (차감 없음)
+- [ ] 승인 → CONFIRMED (가용→예약 이동) / PRODUCING (가용 전량 예약 이동 + 부족분 생산 큐)
 - [ ] 거절 → REJECTED
 - [ ] 잘못된 번호 입력 재시도

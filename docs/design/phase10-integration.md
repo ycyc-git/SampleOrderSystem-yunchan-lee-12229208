@@ -19,6 +19,21 @@ Phase 01~09 완료
 | 전체 주문 N건 | Phase 04 완료 | — |
 | 생산라인 N건 대기 | Phase 07 완료 | tick 후 큐 감소 반영 재확인 |
 
+### 예약 재고(reservedStock) 모델 검증
+
+Phase 10에서 도입된 재고 관리 모델:
+
+| 이벤트 | `sample.stock` (가용) | `sample.reservedStock` (예약) |
+|--------|---------------------|------------------------------|
+| 주문 승인 (재고 충분) | −qty | +qty |
+| 주문 승인 (재고 부족) | −available (→ 0) | +available |
+| 생산 완료 (tick) | +(actualQty − shortage) | +shortage |
+| 출고 (release) | 불변 | −qty |
+| 재큐 (requeueToProducing) | +반환 후 재예약 | −반환 후 재예약 |
+
+- 신규 주문 분석 시 `currentStock = sample.stock` (예약분 제외)
+- 모니터링 `pendingDemand` = RESERVED 주문 quantity 합계 (CONFIRMED/PRODUCING 제외)
+
 ### ANSI 컬러 일관성 점검
 
 | 요소 | 컬러 |
