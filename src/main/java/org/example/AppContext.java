@@ -38,7 +38,7 @@ public class AppContext {
         MonitoringService monitoringService =
                 new MonitoringService(orderRepository, sampleRepository);
         ReleaseService releaseService =
-                new ReleaseService(orderRepository, sampleRepository);
+                new ReleaseService(orderRepository, sampleRepository, productionLineService);
 
         SampleController sampleController =
                 new SampleController(sampleService, consoleReader, System.out);

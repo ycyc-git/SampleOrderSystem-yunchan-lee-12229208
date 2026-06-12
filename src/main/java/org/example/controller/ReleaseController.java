@@ -12,6 +12,7 @@ public class ReleaseController {
 
     private static final String RESET   = "\033[0m";
     private static final String GREEN   = "\033[92m";
+    private static final String YELLOW  = "\033[93m";
     private static final String MAGENTA = "\033[95m";
     private static final DateTimeFormatter DT_FMT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
@@ -90,6 +91,27 @@ public class ReleaseController {
                 out.printf("  상태      CONFIRMED → %s[RELEASE]%s%n", MAGENTA, RESET);
             } catch (IllegalStateException e) {
                 out.println("오류: " + e.getMessage());
+                out.println();
+                out.println("생산 큐에 다시 등록하시겠습니까?");
+                out.println("[Y] 생산 큐 등록    [N] 취소");
+
+                String requeueChoice;
+                while (true) {
+                    requeueChoice = reader.readLine("선택 > ");
+                    if ("Y".equalsIgnoreCase(requeueChoice)
+                            || "N".equalsIgnoreCase(requeueChoice)) break;
+                    out.println("Y 또는 N을 입력하세요.");
+                }
+
+                if ("Y".equalsIgnoreCase(requeueChoice)) {
+                    Order requeued = releaseService.requeueToProducing(target.getOrderId());
+                    out.println("----------------------------------------------------------------");
+                    out.printf("상태 변경  CONFIRMED → %s[PRODUCING]%s%n", YELLOW, RESET);
+                    out.printf("주문번호   %s%n", requeued.getOrderId());
+                    out.println("생산 큐에 등록되었습니다.");
+                } else {
+                    out.println("재생산 큐 등록을 취소했습니다.");
+                }
             }
             out.println("================================================================");
             return;

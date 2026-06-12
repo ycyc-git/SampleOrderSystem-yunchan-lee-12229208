@@ -22,14 +22,17 @@ class ReleaseServiceTest {
     private SampleRepository sampleRepo;
     private OrderRepository orderRepo;
     private OrderService orderService;
+    private ProductionLineService productionLineService;
     private ReleaseService releaseService;
 
     @BeforeEach
     void setUp() {
         sampleRepo = new SampleRepository(tempDir.resolve("samples.json").toString());
         orderRepo = new OrderRepository(tempDir.resolve("orders.json").toString(), sampleRepo);
+        productionLineService = new ProductionLineService(
+                tempDir.resolve("jobs.json").toString(), orderRepo, sampleRepo);
         orderService = new OrderService(orderRepo, sampleRepo);
-        releaseService = new ReleaseService(orderRepo, sampleRepo);
+        releaseService = new ReleaseService(orderRepo, sampleRepo, productionLineService);
 
         sampleRepo.add(new Sample("S-001", "실리콘 웨이퍼", 0.5, 0.92, 100));
         sampleRepo.add(new Sample("S-002", "GaN 에피택셀", 0.3, 0.78, 0));
@@ -174,5 +177,87 @@ class ReleaseServiceTest {
         releaseService.release(o1.getOrderId());
         releaseService.release(o2.getOrderId());
         assertEquals(50, sampleRepo.findById("S-001").get().getStock());
+    }
+
+    // ── requeueToProducing — 정상 케이스 ─────────────────────────
+
+    @Test
+    void requeueToProducing_transitionsOrderToProducing() {
+        // S-001 stock=100, qty=200 → shortage=100
+        Order o = makeConfirmedOrder("S-001", "고객A", 200);
+        Order result = releaseService.requeueToProducing(o.getOrderId());
+        assertEquals(OrderStatus.PRODUCING, result.getStatus());
+    }
+
+    @Test
+    void requeueToProducing_persistsProducingStatus() {
+        Order o = makeConfirmedOrder("S-001", "고객A", 200);
+        releaseService.requeueToProducing(o.getOrderId());
+        assertEquals(OrderStatus.PRODUCING,
+                orderRepo.findById(o.getOrderId()).get().getStatus());
+    }
+
+    @Test
+    void requeueToProducing_enqueuesToProductionLine() {
+        Order o = makeConfirmedOrder("S-001", "고객A", 200);
+        assertEquals(0, productionLineService.getTotalQueueSize());
+        releaseService.requeueToProducing(o.getOrderId());
+        assertEquals(1, productionLineService.getTotalQueueSize());
+    }
+
+    @Test
+    void requeueToProducing_shortageIsQuantityMinusCurrentStock() {
+        // stock=100, qty=200 → shortage=100
+        Order o = makeConfirmedOrder("S-001", "고객A", 200);
+        releaseService.requeueToProducing(o.getOrderId());
+        assertEquals(100, productionLineService.getCurrentJob().get().getShortage());
+    }
+
+    @Test
+    void requeueToProducing_afterPartialStockDepletion() {
+        // 먼저 출고로 stock을 30으로 줄인 뒤, 재고 부족 주문을 재큐
+        Order o1 = makeConfirmedOrder("S-001", "고객A", 70);
+        releaseService.release(o1.getOrderId()); // stock=30 남음
+        Order o2 = makeConfirmedOrder("S-001", "고객B", 100); // stock=30 < 100
+        releaseService.requeueToProducing(o2.getOrderId());
+        // shortage = 100 - 30 = 70
+        assertEquals(70, productionLineService.getCurrentJob().get().getShortage());
+    }
+
+    @Test
+    void requeueToProducing_doesNotDeductStock() {
+        Order o = makeConfirmedOrder("S-001", "고객A", 200);
+        releaseService.requeueToProducing(o.getOrderId());
+        assertEquals(100, sampleRepo.findById("S-001").get().getStock());
+    }
+
+    // ── requeueToProducing — 오류 케이스 ─────────────────────────
+
+    @Test
+    void requeueToProducing_throwsOnUnknownOrderId() {
+        assertThrows(IllegalArgumentException.class,
+                () -> releaseService.requeueToProducing("ORD-UNKNOWN"));
+    }
+
+    @Test
+    void requeueToProducing_throwsOnReservedOrder() {
+        Order o = orderService.reserve("S-001", "고객A", 10);
+        assertThrows(IllegalStateException.class,
+                () -> releaseService.requeueToProducing(o.getOrderId()));
+    }
+
+    @Test
+    void requeueToProducing_throwsWhenStockSufficient() {
+        // stock=100 충분, qty=50 → shortage=0 → 재생산 불필요
+        Order o = makeConfirmedOrder("S-001", "고객A", 50);
+        assertThrows(IllegalStateException.class,
+                () -> releaseService.requeueToProducing(o.getOrderId()));
+    }
+
+    @Test
+    void requeueToProducing_orderNoLongerInConfirmedList() {
+        Order o = makeConfirmedOrder("S-001", "고객A", 200);
+        releaseService.requeueToProducing(o.getOrderId());
+        assertTrue(releaseService.getConfirmedOrders().isEmpty());
     }
 }

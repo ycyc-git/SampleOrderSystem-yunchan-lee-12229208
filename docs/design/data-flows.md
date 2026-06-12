@@ -299,29 +299,57 @@ Controller
 
 Service: ReleaseService.release(orderId)
   4. OrderRepository.findById(orderId) → Order
-  5. order.status != CONFIRMED 이면 throw InvalidOrderStateException
+  5. order.status != CONFIRMED 이면 throw IllegalStateException
   6. sample = order.sample
-  7. sample.stock < order.quantity 이면 throw InsufficientStockException  // 안전 검증
+  7. sample.stock < order.quantity 이면 throw IllegalStateException (재고 부족)
   8. sample.stock -= order.quantity
   9. order.transition(RELEASE)
   10. order.releasedAt = LocalDateTime.now()
-  11. OrderRepository.save(order)
+  11. OrderRepository.save(order), SampleRepository.save(sample)
 
-Controller
+Controller (성공)
   12. 주문번호, 출고수량, 처리일시, "CONFIRMED → [RELEASE]" 출력
 ```
 
-**오류 경로**
+**오류 경로 — 재고 부족 시 재생산 큐 등록**
 
-| 예외 | 처리 |
+```
+Controller (재고 부족 예외 catch)
+  12. "오류: 재고가 부족합니다..." 출력
+  13. "생산 큐에 다시 등록하시겠습니까? [Y/N]" 프롬프트
+  14a. Y → ReleaseService.requeueToProducing(orderId) 호출
+
+Service: ReleaseService.requeueToProducing(orderId)
+  15. order.status != CONFIRMED 이면 throw IllegalStateException
+  16. shortage = order.quantity - sample.stock
+  17. shortage <= 0 이면 throw IllegalStateException (재고 충분, 재생산 불필요)
+  18. order.transition(PRODUCING)
+  19. OrderRepository.save(order)
+  20. ProductionLineService.enqueue(order, shortage)
+
+Controller (Y 완료)
+  21. "상태 변경  CONFIRMED → [PRODUCING]" + 주문번호 + "생산 큐에 등록되었습니다." 출력
+
+  14b. N → "재생산 큐 등록을 취소했습니다." 출력 (상태 변경 없음)
+```
+
+**상태 전이 요약**
+
+| 경로 | 전이 |
 |------|------|
-| InvalidOrderStateException | "처리할 수 없는 주문 상태입니다." → 목록 재조회 |
-| InsufficientStockException | "재고가 부족합니다. 관리자에게 문의하세요." |
+| 출고 성공 | `CONFIRMED → RELEASE` |
+| 재고 부족 + Y | `CONFIRMED → PRODUCING` |
+| 재고 부족 + N | 변경 없음 (CONFIRMED 유지) |
 
-**사후 상태**
+**사후 상태 (출고 성공)**
 - `sample.stock` 감소 (order.quantity 만큼)
 - `order.status` = RELEASE
 - `order.releasedAt` 기록
+
+**사후 상태 (재생산 큐 등록)**
+- `order.status` = PRODUCING
+- `ProductionLineService` 큐에 ProductionJob 추가
+- `sample.stock` 변동 없음
 
 ---
 

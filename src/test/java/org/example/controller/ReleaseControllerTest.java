@@ -6,6 +6,7 @@ import org.example.domain.Sample;
 import org.example.repository.OrderRepository;
 import org.example.repository.SampleRepository;
 import org.example.service.OrderService;
+import org.example.service.ProductionLineService;
 import org.example.service.ReleaseService;
 import org.example.util.ConsoleReader;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,17 +29,22 @@ class ReleaseControllerTest {
     private SampleRepository sampleRepo;
     private OrderRepository orderRepo;
     private OrderService orderService;
+    private ProductionLineService productionLineService;
     private ReleaseService releaseService;
 
     @BeforeEach
     void setUp() {
         sampleRepo = new SampleRepository(tempDir.resolve("samples.json").toString());
         orderRepo = new OrderRepository(tempDir.resolve("orders.json").toString(), sampleRepo);
+        productionLineService = new ProductionLineService(
+                tempDir.resolve("jobs.json").toString(), orderRepo, sampleRepo);
         orderService = new OrderService(orderRepo, sampleRepo);
-        releaseService = new ReleaseService(orderRepo, sampleRepo);
+        releaseService = new ReleaseService(orderRepo, sampleRepo, productionLineService);
 
         sampleRepo.add(new Sample("S-001", "실리콘 웨이퍼", 0.5, 0.92, 100));
         sampleRepo.add(new Sample("S-002", "GaN 에피택셀", 0.3, 0.78, 50));
+        // stock=5 으로 출고 실패 시나리오에 사용
+        sampleRepo.add(new Sample("S-003", "저재고 시료", 0.5, 0.92, 5));
     }
 
     private String runWith(String input) {
@@ -231,5 +237,78 @@ class ReleaseControllerTest {
         makeConfirmedOrder("S-002", "고객B", 20);
         runWith("2\n");
         assertEquals(OrderStatus.CONFIRMED, orderRepo.findById(o1.getOrderId()).get().getStatus());
+    }
+
+    // ── 재고 부족 → 재생산 큐 등록 ───────────────────────────────
+
+    /** 출고 실패 시 재생산 큐 Y/N 프롬프트가 출력되는지 확인 */
+    @Test
+    void run_insufficientStock_showsRequeuePrompt() {
+        // S-003 stock=5, qty=10 → 출고 실패
+        Order o = makeConfirmedOrder("S-003", "고객A", 10);
+        String output = runWith("1\nY\n");
+        assertTrue(output.contains("재고가 부족합니다."));
+        assertTrue(output.contains("생산 큐에 다시 등록하시겠습니까?"));
+    }
+
+    /** Y 선택 시 주문이 PRODUCING으로 전환되는지 확인 */
+    @Test
+    void run_insufficientStock_Y_transitionsToProducing() {
+        Order o = makeConfirmedOrder("S-003", "고객A", 10);
+        runWith("1\nY\n");
+        assertEquals(OrderStatus.PRODUCING,
+                orderRepo.findById(o.getOrderId()).get().getStatus());
+    }
+
+    /** Y 선택 시 생산 큐에 등록되었다는 메시지가 표시되는지 확인 */
+    @Test
+    void run_insufficientStock_Y_showsProducingResult() {
+        makeConfirmedOrder("S-003", "고객A", 10);
+        String output = runWith("1\nY\n");
+        assertTrue(output.contains("[PRODUCING]"));
+        assertTrue(output.contains("생산 큐에 등록되었습니다."));
+    }
+
+    /** Y 선택 시 ProductionLineService 큐에 작업이 추가되는지 확인 */
+    @Test
+    void run_insufficientStock_Y_enqueuesToProductionLine() {
+        makeConfirmedOrder("S-003", "고객A", 10);
+        assertEquals(0, productionLineService.getTotalQueueSize());
+        runWith("1\nY\n");
+        assertEquals(1, productionLineService.getTotalQueueSize());
+    }
+
+    /** N 선택 시 주문 상태가 변경되지 않는지 확인 */
+    @Test
+    void run_insufficientStock_N_doesNotChangeStatus() {
+        Order o = makeConfirmedOrder("S-003", "고객A", 10);
+        runWith("1\nN\n");
+        assertEquals(OrderStatus.CONFIRMED,
+                orderRepo.findById(o.getOrderId()).get().getStatus());
+    }
+
+    /** N 선택 시 생산 큐에 등록되지 않는지 확인 */
+    @Test
+    void run_insufficientStock_N_doesNotEnqueue() {
+        makeConfirmedOrder("S-003", "고객A", 10);
+        runWith("1\nN\n");
+        assertEquals(0, productionLineService.getTotalQueueSize());
+    }
+
+    /** N 선택 시 취소 메시지가 표시되는지 확인 */
+    @Test
+    void run_insufficientStock_N_showsCancelMessage() {
+        makeConfirmedOrder("S-003", "고객A", 10);
+        String output = runWith("1\nN\n");
+        assertTrue(output.contains("취소"));
+    }
+
+    /** Y/N 외 입력 시 재입력 요청 후 Y로 완료 */
+    @Test
+    void run_insufficientStock_invalidYN_retriesAndSucceeds() {
+        makeConfirmedOrder("S-003", "고객A", 10);
+        String output = runWith("1\nX\nY\n");
+        assertTrue(output.contains("Y 또는 N을 입력하세요."));
+        assertTrue(output.contains("생산 큐에 등록되었습니다."));
     }
 }

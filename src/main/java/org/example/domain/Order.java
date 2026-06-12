@@ -40,7 +40,7 @@ public class Order {
             case PRODUCING:
                 return to == OrderStatus.CONFIRMED;
             case CONFIRMED:
-                return to == OrderStatus.RELEASE;
+                return to == OrderStatus.RELEASE || to == OrderStatus.PRODUCING;
             default:
                 return false;
         }

@@ -89,10 +89,10 @@ class OrderTest {
     }
 
     @Test
-    void transition_CONFIRMED_to_PRODUCING_throws() {
+    void transition_CONFIRMED_to_PRODUCING_succeeds() {
         Order o = orderWith(OrderStatus.CONFIRMED);
-        assertThrows(IllegalStateException.class,
-                () -> o.transition(OrderStatus.PRODUCING));
+        assertDoesNotThrow(() -> o.transition(OrderStatus.PRODUCING));
+        assertEquals(OrderStatus.PRODUCING, o.getStatus());
     }
 
     @Test
