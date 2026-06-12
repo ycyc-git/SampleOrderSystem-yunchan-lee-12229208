@@ -5,6 +5,8 @@ import org.example.util.ConsoleReader;
 import java.io.PrintStream;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
+import java.util.Map;
 
 public class MainMenu {
 
@@ -22,6 +24,7 @@ public class MainMenu {
     private final ConsoleReader reader;
     private final PrintStream out;
     private final Runnable exitHandler;
+    private final Map<String, Runnable> menuHandlers = new HashMap<>();
 
     public MainMenu(ConsoleReader reader) {
         this(reader, System.out, () -> System.exit(0));
@@ -34,6 +37,10 @@ public class MainMenu {
         this.exitHandler = exitHandler;
     }
 
+    public void setMenuHandler(String key, Runnable handler) {
+        menuHandlers.put(key, handler);
+    }
+
     public void run() {
         while (true) {
             printScreen();
@@ -43,9 +50,15 @@ public class MainMenu {
                     exitHandler.run();
                     return;
                 case "1": case "2": case "3":
-                case "4": case "5": case "6":
-                    out.println("\n[준비 중입니다.]\n");
+                case "4": case "5": case "6": {
+                    Runnable handler = menuHandlers.get(input);
+                    if (handler != null) {
+                        handler.run();
+                    } else {
+                        out.println("\n[준비 중입니다.]\n");
+                    }
                     break;
+                }
                 default:
                     out.println("잘못된 입력입니다. 다시 선택하세요.");
             }
