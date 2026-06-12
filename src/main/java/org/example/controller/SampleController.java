@@ -10,6 +10,8 @@ import java.util.List;
 public class SampleController {
 
     private static final int PAGE_SIZE = 5;
+    private static final String RESET = "\033[0m";
+    private static final String RED   = "\033[91m";
 
     private final SampleService service;
     private final ConsoleReader reader;
@@ -209,11 +211,14 @@ public class SampleController {
     }
 
     private void printTableRow(Sample s) {
-        out.printf("%-12s %-20s %-14s %-8s %d ea%n",
+        String stockStr = s.getStock() == 0
+                ? RED + "0 ea" + RESET
+                : s.getStock() + " ea";
+        out.printf("%-12s %-20s %-14s %-8s %s%n",
                 s.getId(),
                 s.getName(),
                 String.format("%.1f min/ea", s.getAvgProductionTime()),
                 String.format("%.2f", s.getYield()),
-                s.getStock());
+                stockStr);
     }
 }

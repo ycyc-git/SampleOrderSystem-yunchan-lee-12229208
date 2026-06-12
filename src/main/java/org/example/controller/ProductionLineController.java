@@ -12,9 +12,9 @@ import java.util.Optional;
 
 public class ProductionLineController {
 
-    private static final String RESET  = "[0m";
-    private static final String GREEN  = "[92m";
-    private static final String YELLOW = "[93m";
+    private static final String RESET  = "\033[0m";
+    private static final String YELLOW = "\033[93m";
+    private static final String GRAY   = "\033[90m";
     private static final DateTimeFormatter TIME_FMT = DateTimeFormatter.ofPattern("HH:mm");
 
     private final ProductionLineService service;
@@ -37,14 +37,14 @@ public class ProductionLineController {
 
         if (current.isEmpty()) {
             out.println("생산라인  1개  (단일 라인)    현재 상태: " +
-                    YELLOW + "[IDLE]" + RESET);
+                    GRAY + "[IDLE]" + RESET);
             out.println();
             out.println("현재 생산 중인 작업이 없습니다.");
             out.println();
             out.println("대기 중인 주문도 없습니다.");
         } else {
             out.println("생산라인  1개  (단일 라인)    현재 상태: " +
-                    GREEN + "[RUNNING]" + RESET);
+                    YELLOW + "[RUNNING]" + RESET);
             out.println();
             printCurrentJob(current.get());
             out.println("----------------------------------------------------------------");

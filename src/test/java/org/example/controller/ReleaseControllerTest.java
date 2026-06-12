@@ -126,7 +126,7 @@ class ReleaseControllerTest {
     void run_selectOne_completesRelease() {
         makeConfirmedOrder("S-001", "고객A", 10);
         String output = runWith("1\n");
-        assertTrue(output.contains("출고 처리가 완료되었습니다."));
+        assertTrue(output.contains("출고 처리 완료."));
     }
 
     @Test
@@ -178,29 +178,41 @@ class ReleaseControllerTest {
     @Test
     void run_invalidNumber_showsErrorMessage() {
         makeConfirmedOrder("S-001", "고객A", 10);
-        String output = runWith("abc\n");
+        // abc → error, then 0 → cancel
+        String output = runWith("abc\n0\n");
         assertTrue(output.contains("유효하지 않은 번호입니다."));
     }
 
     @Test
     void run_outOfRangeNumber_showsErrorMessage() {
         makeConfirmedOrder("S-001", "고객A", 10);
-        String output = runWith("99\n");
+        // 99 → error, then 0 → cancel
+        String output = runWith("99\n0\n");
         assertTrue(output.contains("유효하지 않은 번호입니다."));
     }
 
     @Test
     void run_negativeNumber_showsErrorMessage() {
         makeConfirmedOrder("S-001", "고객A", 10);
-        String output = runWith("-1\n");
+        // -1 → error, then 0 → cancel
+        String output = runWith("-1\n0\n");
         assertTrue(output.contains("유효하지 않은 번호입니다."));
     }
 
     @Test
     void run_invalidInput_doesNotChangeOrderStatus() {
         Order o = makeConfirmedOrder("S-001", "고객A", 10);
-        runWith("abc\n");
+        runWith("abc\n0\n");
         assertEquals(OrderStatus.CONFIRMED, orderRepo.findById(o.getOrderId()).get().getStatus());
+    }
+
+    @Test
+    void run_invalidThenValidSelection_succeeds() {
+        makeConfirmedOrder("S-001", "고객A", 10);
+        // 99 → error, then 1 → release
+        String output = runWith("99\n1\n");
+        assertTrue(output.contains("유효하지 않은 번호입니다."));
+        assertTrue(output.contains("출고 처리 완료."));
     }
 
     // ── 두 번째 항목 선택 ─────────────────────────────────────────

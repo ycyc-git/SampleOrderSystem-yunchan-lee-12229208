@@ -10,6 +10,10 @@ import java.util.Map;
 
 public class MainMenu {
 
+    private static final String RESET  = "\033[0m";
+    private static final String YELLOW = "\033[93m";
+    private static final String GREEN  = "\033[92m";
+
     private static final String ASCII_ART =
             "███████╗     ███████╗███████╗███╗   ███╗██╗\n" +
             "██╔════╝     ██╔════╝██╔════╝████╗ ████║██║\n" +
@@ -71,10 +75,12 @@ public class MainMenu {
         out.println("================================================================");
         out.printf("시스템 현황  %s%n", LocalDateTime.now().format(FORMATTER));
         out.println();
-        out.printf("등록 시료  %d종        총 재고   %,d ea%n",
-                getSampleCount(), getTotalStock());
-        out.printf("전체 주문  %d건        생산라인  %d건 대기%n",
-                getTotalOrders(), getProductionQueueSize());
+        out.printf("등록 시료  %s%d종%s        총 재고   %s%,d ea%s%n",
+                YELLOW, getSampleCount(), RESET,
+                GREEN,  getTotalStock(),   RESET);
+        out.printf("전체 주문  %s%d건%s        생산라인  %s%d건 대기%s%n",
+                YELLOW, getTotalOrders(),          RESET,
+                YELLOW, getProductionQueueSize(),  RESET);
         out.println("----------------------------------------------------------------");
         out.println("[1] 시료 관리                    [2] 시료 주문");
         out.println("[3] 주문 승인/거절               [4] 모니터링");
