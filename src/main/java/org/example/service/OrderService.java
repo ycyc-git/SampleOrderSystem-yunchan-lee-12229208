@@ -19,10 +19,17 @@ public class OrderService {
 
     private final OrderRepository repository;
     private final SampleRepository sampleRepository;
+    private final ProductionLineService productionLineService;
 
     public OrderService(OrderRepository repository, SampleRepository sampleRepository) {
+        this(repository, sampleRepository, null);
+    }
+
+    public OrderService(OrderRepository repository, SampleRepository sampleRepository,
+                        ProductionLineService productionLineService) {
         this.repository = repository;
         this.sampleRepository = sampleRepository;
+        this.productionLineService = productionLineService;
     }
 
     public Order reserve(String sampleId, String customerName, int quantity) {
@@ -70,6 +77,9 @@ public class OrderService {
             order.transition(OrderStatus.CONFIRMED);
         } else {
             order.transition(OrderStatus.PRODUCING);
+            if (productionLineService != null) {
+                productionLineService.enqueue(order, shortage);
+            }
         }
         repository.save(order);
         return order;
