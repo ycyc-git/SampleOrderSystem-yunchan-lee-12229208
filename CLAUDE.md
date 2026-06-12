@@ -31,7 +31,7 @@ Single-module Java project with standard Maven layout:
 - `src/test/java/` — JUnit 5 tests (currently empty)
 - Group/artifact: `org.example:SampleOrderSystem:1.0-SNAPSHOT`
 
-No external runtime dependencies; JUnit 5 (BOM 6.0.0) is test-only.
+Runtime dependency: **Gson 2.11.0** (JSON persistence). JUnit 5 (BOM 6.0.0) is test-only.
 
 ---
 
@@ -64,6 +64,7 @@ This project implements the **반도체 시료 생산주문관리 시스템** (S
 |------|------|
 | [screen-specs.md](docs/design/screen-specs.md) | 화면별 레이아웃 · 상태 · 입력 유효성 · 에러 메시지 · 엣지 케이스 |
 | [data-flows.md](docs/design/data-flows.md) | DF-01~10 레이어별 단계 처리, 오류 경로, 사후 상태, 상태 전이 제약 테이블 |
+| [data-persistence.md](docs/design/data-persistence.md) | Gson 기반 JSON 영속성 전략: 파일 위치, DTO 패턴, 참조 복원 순서, 테스트 전략 |
 
 ### Key Domain Rules
 - **실 생산량**: `ceil(부족분 / (수율 × 0.9))`

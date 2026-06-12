@@ -14,11 +14,20 @@ Phase 01 완료
 | 클래스 | 역할 |
 |--------|------|
 | `Sample` | 도메인. 필드: id, name, avgProductionTime(double, min/ea), yield(double), stock(int) |
-| `SampleRepository` | `Map<String, Sample>` 인메모리 저장. `add`, `findById`, `findAll` |
+| `SampleRepository` | 인메모리 + JSON 파일 영속. `add`, `findById`, `findAll`, `save` |
 | `SampleService` | `register(id, name, avgTime, yield, initialStock)`, `getAll()` |
 | `SampleController` | `[1]` 시료 등록, `[2]` 시료 목록, `[3]` → "준비 중" |
+| `GsonConfig` | `LocalDateTime` 어댑터 포함 공통 Gson 인스턴스 팩토리 |
 
 > `initialStock` : 테스트 편의를 위해 등록 시 초기 재고 입력 허용 (0 이상 정수)
+
+**JSON 영속성**
+- 파일: `data/samples.json`
+- `SampleRepository(String filePath)` 생성자 — 경로를 인자로 받아 테스트에서 `@TempDir` 사용 가능
+- `AppContext`에서는 기본 경로 `"data/samples.json"` 사용
+- `add()` 및 `save(sample)` 호출 시 즉시 파일 저장
+- 앱 시작 시 파일 존재하면 로드, 없으면 빈 목록으로 시작
+- JSON 포맷은 `docs/design/data-persistence.md` 참조
 
 **SampleService.register() 유효성 규칙**
 
@@ -60,7 +69,9 @@ Phase 01 완료
 
 ## 완료 기준
 
+- [ ] `GsonConfig` 구현 (`LocalDateTimeAdapter` 포함)
 - [ ] 시료 등록 (유효성 검증 포함)
 - [ ] 시료 목록 (5개/페이지, 페이지네이션)
 - [ ] 메인 현황 "등록 시료 / 총 재고" 실시간 반영
 - [ ] 중복 ID, 잘못된 수율/생산시간 오류 처리
+- [ ] `data/samples.json` 자동 생성 및 영속 (재시작 후 데이터 유지)

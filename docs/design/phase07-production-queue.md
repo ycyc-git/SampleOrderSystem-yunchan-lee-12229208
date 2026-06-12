@@ -18,6 +18,14 @@ Phase 05 완료
 | `ProductionLineController` | `[5]` 생산라인 조회 연결 |
 | `OrderService.approve()` | 재고 부족 분기에 `ProductionLineService.enqueue()` 호출 추가 |
 
+**JSON 영속성**
+- 파일: `data/production_jobs.json`
+- JSON에 `Order` 객체 전체가 아닌 `orderId`(String)만 저장
+- `ProductionLineService(String filePath, OrderRepository orderRepo)` 생성자
+  - 로딩 시 `orderId`로 `OrderRepository`에서 `Order` 참조 복원, FIFO 순서 유지
+- `enqueue()` 및 `tick()` 완료 시 즉시 파일 저장
+- JSON 포맷은 `docs/design/data-persistence.md` 참조
+
 **ProductionJob 생성 (enqueue 시)**
 ```
 actualQty  = ceil(shortage / (sample.yield * 0.9))
@@ -61,3 +69,4 @@ startedAt  = queue가 비어 있으면 now(), 아니면 null (대기 상태)
 - [ ] `OrderService.approve()` 재고 부족 분기에서 enqueue 호출
 - [ ] `ProductionLineController` — RUNNING/IDLE 배지, 현재 처리 중 섹션, 대기 큐 7개 컬럼
 - [ ] 메인 현황 "생산라인 N건 대기" 연동
+- [ ] `data/production_jobs.json` 영속 (`orderId`만 저장, FIFO 순서 보존)
