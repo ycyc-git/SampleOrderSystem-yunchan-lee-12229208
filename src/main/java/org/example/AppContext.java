@@ -3,6 +3,7 @@ package org.example;
 import org.example.controller.MonitoringController;
 import org.example.controller.OrderController;
 import org.example.controller.ProductionLineController;
+import org.example.controller.ReleaseController;
 import org.example.controller.SampleController;
 import org.example.domain.Sample;
 import org.example.repository.OrderRepository;
@@ -10,6 +11,7 @@ import org.example.repository.SampleRepository;
 import org.example.service.MonitoringService;
 import org.example.service.OrderService;
 import org.example.service.ProductionLineService;
+import org.example.service.ReleaseService;
 import org.example.service.SampleService;
 import org.example.util.ConsoleReader;
 
@@ -35,6 +37,8 @@ public class AppContext {
 
         MonitoringService monitoringService =
                 new MonitoringService(orderRepository, sampleRepository);
+        ReleaseService releaseService =
+                new ReleaseService(orderRepository, sampleRepository);
 
         SampleController sampleController =
                 new SampleController(sampleService, consoleReader, System.out);
@@ -44,6 +48,8 @@ public class AppContext {
                 new MonitoringController(monitoringService, consoleReader, System.out);
         ProductionLineController productionLineController =
                 new ProductionLineController(productionLineService, consoleReader, System.out);
+        ReleaseController releaseController =
+                new ReleaseController(releaseService, consoleReader, System.out);
 
         scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
             Thread t = new Thread(r, "production-tick");
@@ -78,6 +84,7 @@ public class AppContext {
         mainMenu.setMenuHandler("3", orderController::approveOrReject);
         mainMenu.setMenuHandler("4", monitoringController::run);
         mainMenu.setMenuHandler("5", productionLineController::run);
+        mainMenu.setMenuHandler("6", releaseController::run);
 
         scheduler.scheduleAtFixedRate(productionLineService::tick, 0, 1, TimeUnit.SECONDS);
     }
