@@ -1,5 +1,7 @@
 package org.example.controller;
 
+import org.example.domain.Order;
+import org.example.domain.OrderStatus;
 import org.example.domain.Sample;
 import org.example.repository.OrderRepository;
 import org.example.repository.SampleRepository;
@@ -174,5 +176,152 @@ class OrderControllerTest {
     void run_lowercaseY_confirmsOrder() {
         runWith("S-001\n삼성전자\n30\ny\n");
         assertEquals(1, orderService.getTotalOrders());
+    }
+
+    // ── approveOrReject 헬퍼 ──────────────────────────────────────
+
+    private String approveWith(String input) {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        PrintStream ps = new PrintStream(baos, true, StandardCharsets.UTF_8);
+        ConsoleReader reader = new ConsoleReader(
+                new ByteArrayInputStream(input.getBytes(StandardCharsets.UTF_8)), ps);
+        new OrderController(orderService, reader, ps).approveOrReject();
+        return baos.toString(StandardCharsets.UTF_8);
+    }
+
+    // ── 빈 목록 ───────────────────────────────────────────────────
+
+    @Test
+    void approveOrReject_emptyList_showsMessageAndReturns() {
+        String output = approveWith("");
+        assertTrue(output.contains("승인 대기 중인 주문이 없습니다."));
+    }
+
+    // ── 목록 표시 ─────────────────────────────────────────────────
+
+    @Test
+    void approveOrReject_showsReservedListWithOrderInfo() {
+        Order o = orderService.reserve("S-001", "삼성전자", 30);
+        String output = approveWith("1\nY\n");
+        assertTrue(output.contains("RESERVED"));
+        assertTrue(output.contains("삼성전자"));
+        assertTrue(output.contains("실리콘 웨이퍼-8인치"));
+        assertTrue(output.contains("30 ea"));
+    }
+
+    @Test
+    void approveOrReject_showsOrderId_inList() {
+        Order o = orderService.reserve("S-001", "고객", 10);
+        String output = approveWith("1\nY\n");
+        assertTrue(output.contains(o.getOrderId()));
+    }
+
+    // ── 잘못된 번호 ───────────────────────────────────────────────
+
+    @Test
+    void approveOrReject_invalidNumber_showsErrorAndRetries() {
+        orderService.reserve("S-001", "고객", 10);
+        // 5(invalid) → 1(valid) → Y
+        String output = approveWith("5\n1\nY\n");
+        assertTrue(output.contains("유효하지 않은 번호입니다."));
+    }
+
+    @Test
+    void approveOrReject_zeroNumber_showsErrorAndRetries() {
+        orderService.reserve("S-001", "고객", 10);
+        String output = approveWith("0\n1\nY\n");
+        assertTrue(output.contains("유효하지 않은 번호입니다."));
+    }
+
+    // ── 재고 충분 분석 ────────────────────────────────────────────
+
+    @Test
+    void approveOrReject_showsStockAnalysis_sufficientStock() {
+        // S-001 재고 100, 주문 30 → 부족분 0
+        orderService.reserve("S-001", "고객", 30);
+        String output = approveWith("1\nY\n");
+        assertTrue(output.contains("재고 확인 중"));
+        assertTrue(output.contains("현재 재고"));
+        assertTrue(output.contains("부족분"));
+        assertTrue(output.contains("재고 충분"));
+    }
+
+    // ── 재고 부족 분석 ────────────────────────────────────────────
+
+    @Test
+    void approveOrReject_showsStockAnalysis_insufficientStock() {
+        // S-002 재고 50, 주문 200 → 부족분 150
+        sampleService.register("S-003", "제로재고시료", 0.5, 0.90, 0);
+        orderService.reserve("S-003", "고객", 50);
+        String output = approveWith("1\nY\n");
+        assertTrue(output.contains("재고 부족"));
+        assertTrue(output.contains("실생산량"));
+    }
+
+    // ── Y → 승인 결과 ─────────────────────────────────────────────
+
+    @Test
+    void approveOrReject_Y_sufficientStock_showsConfirmed() {
+        orderService.reserve("S-001", "고객", 30); // stock=100
+        String output = approveWith("1\nY\n");
+        assertTrue(output.contains("[CONFIRMED]"));
+        assertTrue(output.contains("상태 변경"));
+    }
+
+    @Test
+    void approveOrReject_Y_sufficientStock_deductsStock() {
+        orderService.reserve("S-001", "고객", 30); // stock=100
+        approveWith("1\nY\n");
+        assertEquals(70, sampleService.findById("S-001").get().getStock());
+    }
+
+    @Test
+    void approveOrReject_Y_insufficientStock_showsProducing() {
+        sampleService.register("S-003", "제로재고시료", 0.5, 0.90, 0);
+        orderService.reserve("S-003", "고객", 50);
+        String output = approveWith("1\nY\n");
+        assertTrue(output.contains("[PRODUCING]"));
+    }
+
+    // ── N → 거절 ──────────────────────────────────────────────────
+
+    @Test
+    void approveOrReject_N_showsRejected() {
+        orderService.reserve("S-001", "고객", 30);
+        String output = approveWith("1\nN\n");
+        assertTrue(output.contains("[REJECTED]"));
+        assertTrue(output.contains("주문이 거절되었습니다."));
+    }
+
+    @Test
+    void approveOrReject_N_doesNotDeductStock() {
+        orderService.reserve("S-001", "고객", 30);
+        approveWith("1\nN\n");
+        assertEquals(100, sampleService.findById("S-001").get().getStock());
+    }
+
+    @Test
+    void approveOrReject_N_orderBecomesRejected() {
+        Order o = orderService.reserve("S-001", "고객", 30);
+        approveWith("1\nN\n");
+        assertTrue(orderService.getReservedOrders().isEmpty());
+    }
+
+    // ── 잘못된 Y/N 입력 ───────────────────────────────────────────
+
+    @Test
+    void approveOrReject_invalidYN_showsErrorAndRetries() {
+        orderService.reserve("S-001", "고객", 30);
+        String output = approveWith("1\nX\nY\n");
+        assertTrue(output.contains("Y 또는 N을 입력하세요."));
+    }
+
+    // ── 완료 후 주문번호 표시 ─────────────────────────────────────
+
+    @Test
+    void approveOrReject_displaysOrderId_afterCompletion() {
+        Order o = orderService.reserve("S-001", "고객", 30);
+        String output = approveWith("1\nY\n");
+        assertTrue(output.contains(o.getOrderId()));
     }
 }

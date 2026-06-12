@@ -6,6 +6,7 @@ import org.example.service.OrderService;
 import org.example.util.ConsoleReader;
 
 import java.io.PrintStream;
+import java.util.List;
 import java.util.Optional;
 
 public class OrderController {
@@ -80,6 +81,86 @@ public class OrderController {
         out.printf("현재 상태   [%s]%n", order.getStatus().name());
         out.println();
         out.println("※ 재고 확인은 [3] 승인 메뉴에서 직접 진행하세요.");
+        out.println();
+    }
+
+    public void approveOrReject() {
+        out.println("================================================================");
+        out.println("[3] 주문 승인/거절");
+        out.println("----------------------------------------------------------------");
+
+        List<Order> reserved = service.getReservedOrders();
+        if (reserved.isEmpty()) {
+            out.println("승인 대기 중인 주문이 없습니다.");
+            return;
+        }
+
+        // ── 목록 표시 ─────────────────────────────────────────────
+        out.println("승인 대기 중인 예약 목록  (RESERVED)");
+        out.println();
+        out.printf("%-8s %-20s %-20s %-22s %-12s %s%n",
+                "번호", "주문번호", "고객", "시료", "수량", "상태");
+        out.println("-------- -------------------- -------------------- ---------------------- ------------ ----------");
+        for (int i = 0; i < reserved.size(); i++) {
+            Order o = reserved.get(i);
+            out.printf("[%-6d] %-20s %-20s %-22s %-12s [%s]%n",
+                    i + 1, o.getOrderId(), o.getCustomerName(),
+                    o.getSample().getName(), o.getQuantity() + " ea",
+                    o.getStatus().name());
+        }
+        out.println();
+
+        // ── 번호 선택 ─────────────────────────────────────────────
+        int selectedIdx;
+        while (true) {
+            int num = reader.readInt("승인할 번호 > ");
+            if (num >= 1 && num <= reserved.size()) {
+                selectedIdx = num - 1;
+                break;
+            }
+            out.println("유효하지 않은 번호입니다.");
+        }
+
+        Order selected = reserved.get(selectedIdx);
+
+        // ── 재고 분석 ─────────────────────────────────────────────
+        OrderService.StockAnalysisResult analysis =
+                service.analyzeStock(selected.getOrderId());
+        out.println("재고 확인 중...");
+        out.println();
+        out.printf("%-16s %-22s 현재 재고   %d ea%n",
+                "시료", selected.getSample().getName(), analysis.currentStock);
+        out.printf("%-16s %d ea%-18s 부족분      %d ea%n",
+                "주문 수량", analysis.quantity, "", analysis.shortage);
+        out.println("----------------------------------------------------------------");
+
+        if (analysis.shortage == 0) {
+            out.println("재고 충분. 즉시 출고 대기로 전환합니다.");
+        } else {
+            out.printf("재고 부족. 부족분 %d ea 승인하시겠습니까?  (실생산량 %d ea / %.1f min)%n",
+                    analysis.shortage, analysis.actualQty, analysis.totalTime);
+        }
+        out.println();
+        out.println("[Y] 승인    [N] 주문 거절");
+
+        String choice;
+        while (true) {
+            choice = reader.readLine("선택 > ");
+            if ("Y".equalsIgnoreCase(choice) || "N".equalsIgnoreCase(choice)) break;
+            out.println("Y 또는 N을 입력하세요.");
+        }
+
+        // ── 결과 ──────────────────────────────────────────────────
+        out.println("----------------------------------------------------------------");
+        if ("Y".equalsIgnoreCase(choice)) {
+            Order updated = service.approve(selected.getOrderId());
+            out.printf("상태 변경  RESERVED → [%s]%n", updated.getStatus().name());
+        } else {
+            service.reject(selected.getOrderId());
+            out.println("상태 변경  RESERVED → [REJECTED]");
+            out.println("주문이 거절되었습니다.");
+        }
+        out.printf("주문번호     %s%n", selected.getOrderId());
         out.println();
     }
 }

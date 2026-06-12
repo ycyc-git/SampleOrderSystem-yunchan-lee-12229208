@@ -12,6 +12,7 @@ import org.junit.jupiter.api.io.TempDir;
 import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -147,5 +148,150 @@ class OrderServiceTest {
     @Test
     void getTotalOrders_returnsZero_whenEmpty() {
         assertEquals(0, service.getTotalOrders());
+    }
+
+    // ── getReservedOrders ─────────────────────────────────────────
+
+    @Test
+    void getReservedOrders_returnsOnlyReserved() {
+        Order o1 = service.reserve("S-001", "고객1", 10);
+        Order o2 = service.reserve("S-001", "고객2", 20);
+        o2.transition(OrderStatus.CONFIRMED);
+        orderRepo.save(o2);
+
+        List<Order> reserved = service.getReservedOrders();
+        assertEquals(1, reserved.size());
+        assertEquals(o1.getOrderId(), reserved.get(0).getOrderId());
+    }
+
+    @Test
+    void getReservedOrders_returnsEmpty_whenNone() {
+        assertTrue(service.getReservedOrders().isEmpty());
+    }
+
+    // ── analyzeStock ──────────────────────────────────────────────
+
+    @Test
+    void analyzeStock_sufficientStock_zeroShortage() {
+        Order o = service.reserve("S-001", "고객", 30); // stock=100, qty=30
+        OrderService.StockAnalysisResult r = service.analyzeStock(o.getOrderId());
+
+        assertEquals(100, r.currentStock);
+        assertEquals(30, r.quantity);
+        assertEquals(0, r.shortage);
+        assertEquals(0, r.actualQty);
+        assertEquals(0.0, r.totalTime, 0.001);
+    }
+
+    @Test
+    void analyzeStock_exactMatch_zeroShortage() {
+        sampleRepo.add(new Sample("S-100", "정확일치", 1.0, 0.90, 30));
+        Order o = service.reserve("S-100", "고객", 30);
+        OrderService.StockAnalysisResult r = service.analyzeStock(o.getOrderId());
+
+        assertEquals(0, r.shortage);
+    }
+
+    @Test
+    void analyzeStock_insufficientStock_computesActualQty() {
+        // stock=50, qty=100, shortage=50, yield=0.78
+        // actualQty = ceil(50 / (0.78 * 0.9)) = ceil(50 / 0.702) = ceil(71.22) = 72
+        Order o = service.reserve("S-002", "고객", 100);
+        OrderService.StockAnalysisResult r = service.analyzeStock(o.getOrderId());
+
+        assertEquals(50, r.currentStock);
+        assertEquals(100, r.quantity);
+        assertEquals(50, r.shortage);
+        assertEquals((int) Math.ceil(50.0 / (0.78 * 0.9)), r.actualQty);
+        assertEquals(0.3 * r.actualQty, r.totalTime, 0.001);
+    }
+
+    @Test
+    void analyzeStock_zeroStock() {
+        sampleRepo.add(new Sample("S-200", "제로재고", 0.5, 0.90, 0));
+        Order o = service.reserve("S-200", "고객", 20);
+        OrderService.StockAnalysisResult r = service.analyzeStock(o.getOrderId());
+
+        assertEquals(0, r.currentStock);
+        assertEquals(20, r.shortage);
+        assertTrue(r.actualQty > 0);
+    }
+
+    @Test
+    void analyzeStock_throwsForUnknownOrderId() {
+        assertThrows(IllegalArgumentException.class,
+                () -> service.analyzeStock("ORD-UNKNOWN-0000"));
+    }
+
+    // ── approve ───────────────────────────────────────────────────
+
+    @Test
+    void approve_sufficientStock_transitionsToConfirmed() {
+        Order o = service.reserve("S-001", "고객", 30); // stock=100
+        Order updated = service.approve(o.getOrderId());
+        assertEquals(OrderStatus.CONFIRMED, updated.getStatus());
+    }
+
+    @Test
+    void approve_sufficientStock_deductsStockFromSample() {
+        Order o = service.reserve("S-001", "고객", 30); // stock=100
+        service.approve(o.getOrderId());
+        assertEquals(70, sampleRepo.findById("S-001").get().getStock());
+    }
+
+    @Test
+    void approve_insufficientStock_transitionsToProducing() {
+        Order o = service.reserve("S-002", "고객", 200); // stock=50, qty=200
+        Order updated = service.approve(o.getOrderId());
+        assertEquals(OrderStatus.PRODUCING, updated.getStatus());
+    }
+
+    @Test
+    void approve_insufficientStock_doesNotDeductStock() {
+        Order o = service.reserve("S-002", "고객", 200); // stock=50
+        service.approve(o.getOrderId());
+        assertEquals(50, sampleRepo.findById("S-002").get().getStock());
+    }
+
+    @Test
+    void approve_persistsUpdatedOrder() {
+        Order o = service.reserve("S-001", "고객", 30);
+        service.approve(o.getOrderId());
+        assertEquals(OrderStatus.CONFIRMED, orderRepo.findById(o.getOrderId()).get().getStatus());
+    }
+
+    @Test
+    void approve_throwsForUnknownOrderId() {
+        assertThrows(IllegalArgumentException.class,
+                () -> service.approve("ORD-UNKNOWN-0000"));
+    }
+
+    // ── reject ────────────────────────────────────────────────────
+
+    @Test
+    void reject_transitionsToRejected() {
+        Order o = service.reserve("S-001", "고객", 30);
+        Order updated = service.reject(o.getOrderId());
+        assertEquals(OrderStatus.REJECTED, updated.getStatus());
+    }
+
+    @Test
+    void reject_doesNotDeductStock() {
+        Order o = service.reserve("S-001", "고객", 30);
+        service.reject(o.getOrderId());
+        assertEquals(100, sampleRepo.findById("S-001").get().getStock());
+    }
+
+    @Test
+    void reject_persistsUpdatedOrder() {
+        Order o = service.reserve("S-001", "고객", 30);
+        service.reject(o.getOrderId());
+        assertEquals(OrderStatus.REJECTED, orderRepo.findById(o.getOrderId()).get().getStatus());
+    }
+
+    @Test
+    void reject_throwsForUnknownOrderId() {
+        assertThrows(IllegalArgumentException.class,
+                () -> service.reject("ORD-UNKNOWN-0000"));
     }
 }

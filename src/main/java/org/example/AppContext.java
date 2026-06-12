@@ -46,6 +46,7 @@ public class AppContext {
         };
         mainMenu.setMenuHandler("1", sampleController::run);
         mainMenu.setMenuHandler("2", orderController::run);
+        mainMenu.setMenuHandler("3", orderController::approveOrReject);
     }
 
     public void start() {
