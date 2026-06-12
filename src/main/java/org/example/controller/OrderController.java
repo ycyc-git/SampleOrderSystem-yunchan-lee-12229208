@@ -34,9 +34,33 @@ public class OrderController {
         out.println("[2] 시료 주문");
         out.println("----------------------------------------------------------------");
 
+        // 시료 목록 표시
+        List<Sample> allSamples = service.getAllSamples();
+        if (allSamples.isEmpty()) {
+            out.println("등록된 시료가 없습니다. 먼저 [1] 시료 등록을 진행하세요.");
+            return;
+        }
+        out.println("등록된 시료 목록");
+        out.println();
+        out.printf("%-10s %-26s %-12s %-10s %s%n", "ID", "시료명", "생산시간(min)", "수율", "재고");
+        out.println("---------- -------------------------- ------------ ---------- ----------");
+        for (Sample s : allSamples) {
+            out.printf("%-10s %-26s %-12.1f %-10.0f%% %d ea%n",
+                    s.getId(), s.getName(),
+                    s.getAvgProductionTime(), s.getYield() * 100,
+                    s.getStock());
+        }
+        out.println();
+        out.println("※ 시료 ID를 입력하세요. 빈 칸으로 엔터 시 뒤로 돌아갑니다.");
+        out.println("----------------------------------------------------------------");
+
         Sample sample;
         while (true) {
             String sampleId = reader.readLine("시료 ID     > ");
+            if (sampleId.isBlank()) {
+                out.println("주문이 취소되었습니다.");
+                return;
+            }
             Optional<Sample> opt = service.findSampleById(sampleId);
             if (opt.isPresent()) {
                 sample = opt.get();

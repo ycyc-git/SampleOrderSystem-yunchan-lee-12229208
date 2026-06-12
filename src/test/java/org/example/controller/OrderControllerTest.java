@@ -178,6 +178,65 @@ class OrderControllerTest {
         assertEquals(1, orderService.getTotalOrders());
     }
 
+    // ── 시료 목록 표시 ────────────────────────────────────────────
+
+    @Test
+    void run_showsSampleList() {
+        String output = runWith("S-001\n삼성전자\n30\nY\n");
+        assertTrue(output.contains("등록된 시료 목록"));
+        assertTrue(output.contains("S-001"));
+        assertTrue(output.contains("실리콘 웨이퍼-8인치"));
+        assertTrue(output.contains("S-002"));
+        assertTrue(output.contains("GaN 에피택셀-4인치"));
+    }
+
+    @Test
+    void run_showsSampleListHeader() {
+        String output = runWith("S-001\n삼성전자\n30\nY\n");
+        assertTrue(output.contains("생산시간(min)"));
+        assertTrue(output.contains("수율"));
+        assertTrue(output.contains("재고"));
+    }
+
+    @Test
+    void run_showsSampleStock() {
+        String output = runWith("S-001\n삼성전자\n30\nY\n");
+        assertTrue(output.contains("100 ea"));
+    }
+
+    @Test
+    void run_showsBlankEnterHint() {
+        String output = runWith("S-001\n삼성전자\n30\nY\n");
+        assertTrue(output.contains("빈 칸으로 엔터 시 뒤로"));
+    }
+
+    @Test
+    void run_blankSampleId_cancelsAndReturns() {
+        String output = runWith("\n");
+        assertTrue(output.contains("주문이 취소되었습니다."));
+        assertEquals(0, orderService.getTotalOrders());
+    }
+
+    @Test
+    void run_noSamples_showsMessageAndReturns() {
+        // 시료 없는 새 OrderService
+        SampleRepository emptyRepo =
+                new SampleRepository(tempDir.resolve("empty_samples.json").toString());
+        OrderRepository emptyOrderRepo =
+                new OrderRepository(tempDir.resolve("empty_orders.json").toString(), emptyRepo);
+        OrderService emptyOrderService = new OrderService(emptyOrderRepo, emptyRepo);
+
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        PrintStream ps = new PrintStream(baos, true, StandardCharsets.UTF_8);
+        ConsoleReader reader = new ConsoleReader(
+                new ByteArrayInputStream("".getBytes(StandardCharsets.UTF_8)), ps);
+        new OrderController(emptyOrderService, reader, ps).run();
+        String output = baos.toString(StandardCharsets.UTF_8);
+
+        assertTrue(output.contains("등록된 시료가 없습니다."));
+        assertEquals(0, emptyOrderService.getTotalOrders());
+    }
+
     // ── approveOrReject 헬퍼 ──────────────────────────────────────
 
     private String approveWith(String input) {

@@ -97,6 +97,10 @@ public class OrderService {
         return sampleRepository.findById(sampleId);
     }
 
+    public List<Sample> getAllSamples() {
+        return sampleRepository.findAll();
+    }
+
     public int getTotalOrders() {
         return (int) repository.findAll().stream()
                 .filter(o -> o.getStatus() != OrderStatus.REJECTED)
