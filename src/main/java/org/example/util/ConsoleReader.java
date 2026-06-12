@@ -2,6 +2,7 @@ package org.example.util;
 
 import java.io.InputStream;
 import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
 import java.util.Scanner;
 
 public class ConsoleReader {
@@ -10,13 +11,16 @@ public class ConsoleReader {
     private final PrintStream out;
 
     public ConsoleReader() {
-        this(System.in, System.out);
+        this.scanner = new Scanner(System.in, StandardCharsets.UTF_8);
+        this.out = new PrintStream(System.out, true, StandardCharsets.UTF_8);
     }
 
     public ConsoleReader(InputStream in, PrintStream out) {
-        this.scanner = new Scanner(in);
+        this.scanner = new Scanner(in, StandardCharsets.UTF_8);
         this.out = out;
     }
+
+    public PrintStream getOut() { return out; }
 
     public String readLine(String prompt) {
         out.print(prompt);

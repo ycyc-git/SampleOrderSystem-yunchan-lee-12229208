@@ -41,15 +41,15 @@ public class AppContext {
                 new ReleaseService(orderRepository, sampleRepository, productionLineService);
 
         SampleController sampleController =
-                new SampleController(sampleService, consoleReader, System.out);
+                new SampleController(sampleService, consoleReader, consoleReader.getOut());
         OrderController orderController =
-                new OrderController(orderService, consoleReader, System.out);
+                new OrderController(orderService, consoleReader, consoleReader.getOut());
         MonitoringController monitoringController =
-                new MonitoringController(monitoringService, consoleReader, System.out);
+                new MonitoringController(monitoringService, consoleReader, consoleReader.getOut());
         ProductionLineController productionLineController =
-                new ProductionLineController(productionLineService, consoleReader, System.out);
+                new ProductionLineController(productionLineService, consoleReader, consoleReader.getOut());
         ReleaseController releaseController =
-                new ReleaseController(releaseService, consoleReader, System.out);
+                new ReleaseController(releaseService, consoleReader, consoleReader.getOut());
 
         scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
             Thread t = new Thread(r, "production-tick");
@@ -57,7 +57,7 @@ public class AppContext {
             return t;
         });
 
-        mainMenu = new MainMenu(consoleReader, System.out, this::stop) {
+        mainMenu = new MainMenu(consoleReader, consoleReader.getOut(), this::stop) {
             @Override
             protected int getSampleCount() {
                 return sampleRepository.findAll().size();
