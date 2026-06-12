@@ -4,6 +4,7 @@ import org.example.domain.Order;
 import org.example.domain.OrderStatus;
 import org.example.domain.StockStatusDto;
 import org.example.service.MonitoringService;
+import org.example.util.Ansi;
 import org.example.util.ConsoleReader;
 
 import java.io.PrintStream;
@@ -13,13 +14,6 @@ import java.util.List;
 import java.util.Map;
 
 public class MonitoringController {
-
-    private static final String RESET   = "[0m";
-    private static final String BLUE    = "[94m";
-    private static final String GREEN   = "[92m";
-    private static final String YELLOW  = "[93m";
-    private static final String MAGENTA = "[95m";
-    private static final String RED     = "[91m";
 
     private static final DateTimeFormatter DT_FMT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
@@ -59,10 +53,10 @@ public class MonitoringController {
         Map<OrderStatus, Long> summary = service.getOrderSummaryByStatus();
         out.println("상태별 주문 현황");
         out.println();
-        printStatusSection(BLUE,   OrderStatus.RESERVED,  summary, "");
-        printStatusSection(GREEN,  OrderStatus.CONFIRMED,  summary, "");
-        printStatusSection(YELLOW, OrderStatus.PRODUCING,  summary, "  ← 생산라인 대기");
-        printOrderLine(MAGENTA, OrderStatus.RELEASE, summary, "");
+        printStatusSection(Ansi.BLUE,   OrderStatus.RESERVED,  summary, "");
+        printStatusSection(Ansi.GREEN,  OrderStatus.CONFIRMED,  summary, "");
+        printStatusSection(Ansi.YELLOW, OrderStatus.PRODUCING,  summary, "  ← 생산라인 대기");
+        printOrderLine(Ansi.MAGENTA, OrderStatus.RELEASE, summary, "");
         out.println();
         out.println("----------------------------------------------------------------");
     }
@@ -94,7 +88,7 @@ public class MonitoringController {
         String text = "[" + status.name() + "]";
         int padLen = 13 - text.length();
         String pad = " ".repeat(Math.max(1, padLen));
-        out.printf("%s%s%s%s%d건%s%n", color, text, RESET, pad, count, note);
+        out.printf("%s%s%s%s%d건%s%n", color, text, Ansi.RESET, pad, count, note);
     }
 
     private void showStockStatus() {
@@ -109,11 +103,11 @@ public class MonitoringController {
         } else {
             for (StockStatusDto dto : list) {
                 String labelColor = switch (dto.getStockLabel()) {
-                    case "여유" -> GREEN;
-                    case "부족" -> YELLOW;
-                    default     -> RED;
+                    case "여유" -> Ansi.GREEN;
+                    case "부족" -> Ansi.YELLOW;
+                    default     -> Ansi.RED;
                 };
-                String labelBadge = labelColor + "[" + dto.getStockLabel() + "]" + RESET;
+                String labelBadge = labelColor + "[" + dto.getStockLabel() + "]" + Ansi.RESET;
                 String bar = progressBar(dto.getRemainingRate());
                 out.printf("%-24s %-11s %-10s %s%n",
                         dto.getSample().getName(),

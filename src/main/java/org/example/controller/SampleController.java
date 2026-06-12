@@ -2,6 +2,7 @@ package org.example.controller;
 
 import org.example.domain.Sample;
 import org.example.service.SampleService;
+import org.example.util.Ansi;
 import org.example.util.ConsoleReader;
 
 import java.io.PrintStream;
@@ -10,8 +11,6 @@ import java.util.List;
 public class SampleController {
 
     private static final int PAGE_SIZE = 5;
-    private static final String RESET = "\033[0m";
-    private static final String RED   = "\033[91m";
 
     private final SampleService service;
     private final ConsoleReader reader;
@@ -28,11 +27,11 @@ public class SampleController {
             printMenu();
             String input = reader.readLine("선택 > ");
             switch (input) {
-                case "1": registerSample(); break;
-                case "2": listSamples(); break;
-                case "3": searchSamples(); break;
-                case "0": return;
-                default:  out.println("잘못된 입력입니다. 다시 선택하세요.");
+                case "1" -> registerSample();
+                case "2" -> listSamples();
+                case "3" -> searchSamples();
+                case "0" -> { return; }
+                default  -> out.println("잘못된 입력입니다. 다시 선택하세요.");
             }
         }
     }
@@ -149,12 +148,12 @@ public class SampleController {
             printSearchMenu();
             String input = reader.readLine("선택 > ");
             switch (input) {
-                case "1": searchById(); break;
-                case "2": searchByName(); break;
-                case "3": searchByYield(); break;
-                case "4": searchByStock(); break;
-                case "0": return;
-                default: out.println("잘못된 입력입니다. 다시 선택하세요.");
+                case "1" -> searchById();
+                case "2" -> searchByName();
+                case "3" -> searchByYield();
+                case "4" -> searchByStock();
+                case "0" -> { return; }
+                default  -> out.println("잘못된 입력입니다. 다시 선택하세요.");
             }
         }
     }
@@ -212,7 +211,7 @@ public class SampleController {
 
     private void printTableRow(Sample s) {
         String stockStr = s.getStock() == 0
-                ? RED + "0 ea" + RESET
+                ? Ansi.RED + "0 ea" + Ansi.RESET
                 : s.getStock() + " ea";
         out.printf("%-12s %-20s %-14s %-8s %s%n",
                 s.getId(),

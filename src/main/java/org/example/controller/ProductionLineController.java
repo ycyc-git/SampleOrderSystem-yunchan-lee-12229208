@@ -1,7 +1,10 @@
 package org.example.controller;
 
+import org.example.domain.Order;
 import org.example.domain.ProductionJob;
+import org.example.domain.Sample;
 import org.example.service.ProductionLineService;
+import org.example.util.Ansi;
 import org.example.util.ConsoleReader;
 
 import java.io.PrintStream;
@@ -12,9 +15,6 @@ import java.util.Optional;
 
 public class ProductionLineController {
 
-    private static final String RESET  = "\033[0m";
-    private static final String YELLOW = "\033[93m";
-    private static final String GRAY   = "\033[90m";
     private static final DateTimeFormatter TIME_FMT = DateTimeFormatter.ofPattern("HH:mm");
 
     private final ProductionLineService service;
@@ -37,14 +37,14 @@ public class ProductionLineController {
 
         if (current.isEmpty()) {
             out.println("생산라인  1개  (단일 라인)    현재 상태: " +
-                    GRAY + "[IDLE]" + RESET);
+                    Ansi.GRAY + "[IDLE]" + Ansi.RESET);
             out.println();
             out.println("현재 생산 중인 작업이 없습니다.");
             out.println();
             out.println("대기 중인 주문도 없습니다.");
         } else {
             out.println("생산라인  1개  (단일 라인)    현재 상태: " +
-                    YELLOW + "[RUNNING]" + RESET);
+                    Ansi.YELLOW + "[RUNNING]" + Ansi.RESET);
             out.println();
             printCurrentJob(current.get());
             out.println("----------------------------------------------------------------");
@@ -61,17 +61,13 @@ public class ProductionLineController {
         out.println("현재 처리 중");
         out.println();
 
-        String sampleName = job.getOrder().getSample().getName();
-        String orderId = job.getOrder().getOrderId();
-        int orderQty = job.getOrder().getQuantity();
-        int stock = job.getOrder().getSample().getStock();
-        double yield = job.getOrder().getSample().getYield();
-        double avgTime = job.getOrder().getSample().getAvgProductionTime();
+        Order order = job.getOrder();
+        Sample sample = order.getSample();
 
-        out.printf("  주문번호   %-22s 시료   %s%n", "[" + orderId + "]", sampleName);
+        out.printf("  주문번호   %-22s 시료   %s%n", "[" + order.getOrderId() + "]", sample.getName());
         out.printf("  주문량     %d ea  재고 %d ea  →  부족 %d ea  →  실생산량 %d ea  (수율 %.2f / %.1f min)%n",
-                orderQty, stock, job.getShortage(),
-                job.getActualProductionQty(), yield, avgTime);
+                order.getQuantity(), sample.getStock(), job.getShortage(),
+                job.getActualProductionQty(), sample.getYield(), sample.getAvgProductionTime());
 
         int progress = service.getProgressPercent();
         int filled = progress / 10;

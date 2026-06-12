@@ -1,8 +1,10 @@
 package org.example.controller;
 
 import org.example.domain.Order;
+import org.example.domain.OrderStatus;
 import org.example.domain.Sample;
 import org.example.service.OrderService;
+import org.example.util.Ansi;
 import org.example.util.ConsoleReader;
 
 import java.io.PrintStream;
@@ -10,13 +12,6 @@ import java.util.List;
 import java.util.Optional;
 
 public class OrderController {
-
-    private static final String RESET   = "\033[0m";
-    private static final String BLUE    = "\033[94m";
-    private static final String GREEN   = "\033[92m";
-    private static final String YELLOW  = "\033[93m";
-    private static final String MAGENTA = "\033[95m";
-    private static final String RED     = "\033[91m";
 
     private final OrderService service;
     private final ConsoleReader reader;
@@ -104,10 +99,10 @@ public class OrderController {
         // ── Step 3: 완료 ──────────────────────────────────────────
         Order order = service.reserve(sample.getId(), customerName, quantity);
         out.println("----------------------------------------------------------------");
-        out.println(GREEN + "예약 접수 완료." + RESET);
+        out.println(Ansi.GREEN + "예약 접수 완료." + Ansi.RESET);
         out.println();
         out.printf("주문번호    %s%n", order.getOrderId());
-        out.printf("현재 상태   %s[%s]%s%n", BLUE, order.getStatus().name(), RESET);
+        out.printf("현재 상태   %s[%s]%s%n", Ansi.BLUE, order.getStatus().name(), Ansi.RESET);
         out.println();
         out.println("※ 재고 확인은 [3] 승인 메뉴에서 직접 진행하세요.");
         out.println();
@@ -135,7 +130,7 @@ public class OrderController {
             out.printf("[%-6d] %-20s %-20s %-22s %-12s %s[%s]%s%n",
                     i + 1, o.getOrderId(), o.getCustomerName(),
                     o.getSample().getName(), o.getQuantity() + " ea",
-                    BLUE, o.getStatus().name(), RESET);
+                    Ansi.BLUE, o.getStatus().name(), Ansi.RESET);
         }
         out.println();
 
@@ -183,14 +178,14 @@ public class OrderController {
         out.println("----------------------------------------------------------------");
         if ("Y".equalsIgnoreCase(choice)) {
             Order updated = service.approve(selected.getOrderId());
-            String statusColor = updated.getStatus() == org.example.domain.OrderStatus.CONFIRMED
-                    ? GREEN : YELLOW;
+            String statusColor = updated.getStatus() == OrderStatus.CONFIRMED
+                    ? Ansi.GREEN : Ansi.YELLOW;
             out.printf("상태 변경  %s[RESERVED]%s → %s[%s]%s%n",
-                    BLUE, RESET, statusColor, updated.getStatus().name(), RESET);
+                    Ansi.BLUE, Ansi.RESET, statusColor, updated.getStatus().name(), Ansi.RESET);
         } else {
             service.reject(selected.getOrderId());
             out.printf("상태 변경  %s[RESERVED]%s → %s[REJECTED]%s%n",
-                    BLUE, RESET, RED, RESET);
+                    Ansi.BLUE, Ansi.RESET, Ansi.RED, Ansi.RESET);
             out.println("주문이 거절되었습니다.");
         }
         out.printf("주문번호     %s%n", selected.getOrderId());

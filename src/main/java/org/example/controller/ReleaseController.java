@@ -2,6 +2,7 @@ package org.example.controller;
 
 import org.example.domain.Order;
 import org.example.service.ReleaseService;
+import org.example.util.Ansi;
 import org.example.util.ConsoleReader;
 
 import java.io.PrintStream;
@@ -10,10 +11,6 @@ import java.util.List;
 
 public class ReleaseController {
 
-    private static final String RESET   = "\033[0m";
-    private static final String GREEN   = "\033[92m";
-    private static final String YELLOW  = "\033[93m";
-    private static final String MAGENTA = "\033[95m";
     private static final DateTimeFormatter DT_FMT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
@@ -83,12 +80,12 @@ public class ReleaseController {
             try {
                 Order released = releaseService.release(target.getOrderId());
                 out.println("----------------------------------------------------------------");
-                out.println(GREEN + "출고 처리 완료." + RESET);
+                out.println(Ansi.GREEN + "출고 처리 완료." + Ansi.RESET);
                 out.println();
                 out.printf("  주문번호  %s%n", released.getOrderId());
                 out.printf("  출고수량  %d ea%n", released.getQuantity());
                 out.printf("  처리일시  %s%n", released.getReleasedAt().format(DT_FMT));
-                out.printf("  상태      CONFIRMED → %s[RELEASE]%s%n", MAGENTA, RESET);
+                out.printf("  상태      CONFIRMED → %s[RELEASE]%s%n", Ansi.MAGENTA, Ansi.RESET);
             } catch (IllegalStateException e) {
                 out.println("오류: " + e.getMessage());
                 out.println();
@@ -106,7 +103,7 @@ public class ReleaseController {
                 if ("Y".equalsIgnoreCase(requeueChoice)) {
                     Order requeued = releaseService.requeueToProducing(target.getOrderId());
                     out.println("----------------------------------------------------------------");
-                    out.printf("상태 변경  CONFIRMED → %s[PRODUCING]%s%n", YELLOW, RESET);
+                    out.printf("상태 변경  CONFIRMED → %s[PRODUCING]%s%n", Ansi.YELLOW, Ansi.RESET);
                     out.printf("주문번호   %s%n", requeued.getOrderId());
                     out.println("생산 큐에 등록되었습니다.");
                 } else {
