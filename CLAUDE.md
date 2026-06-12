@@ -20,7 +20,7 @@ gradlew.bat test --tests "org.example.SomeTest"
 gradlew.bat clean
 
 # 빌드 후 메인 클래스 실행
-java -cp build/classes/java/main org.example.Main
+gradlew.bat run
 ```
 
 ## 아키텍처
