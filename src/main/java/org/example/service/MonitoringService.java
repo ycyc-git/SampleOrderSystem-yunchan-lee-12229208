@@ -39,6 +39,7 @@ public class MonitoringService {
     public List<StockStatusDto> getStockStatus() {
         List<Order> pending = orderRepository.findAll().stream()
                 .filter(o -> o.getStatus() == OrderStatus.RESERVED
+                          || o.getStatus() == OrderStatus.CONFIRMED
                           || o.getStatus() == OrderStatus.PRODUCING)
                 .collect(Collectors.toList());
 

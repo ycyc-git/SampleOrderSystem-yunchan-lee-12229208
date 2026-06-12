@@ -233,10 +233,11 @@ class OrderServiceTest {
     }
 
     @Test
-    void approve_sufficientStock_deductsStockFromSample() {
+    void approve_sufficientStock_doesNotDeductStock() {
+        // 재고 차감은 release() 시점에만 발생해야 한다
         Order o = service.reserve("S-001", "고객", 30); // stock=100
         service.approve(o.getOrderId());
-        assertEquals(70, sampleRepo.findById("S-001").get().getStock());
+        assertEquals(100, sampleRepo.findById("S-001").get().getStock());
     }
 
     @Test

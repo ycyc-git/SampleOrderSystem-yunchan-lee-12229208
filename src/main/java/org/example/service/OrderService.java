@@ -72,8 +72,6 @@ public class OrderService {
         Sample sample = order.getSample();
         int shortage = Math.max(0, order.getQuantity() - sample.getStock());
         if (shortage == 0) {
-            sample.setStock(sample.getStock() - order.getQuantity());
-            sampleRepository.save(sample);
             order.transition(OrderStatus.CONFIRMED);
         } else {
             order.transition(OrderStatus.PRODUCING);

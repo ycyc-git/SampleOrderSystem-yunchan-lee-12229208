@@ -179,14 +179,15 @@ class MonitoringServiceTest {
     }
 
     @Test
-    void getStockStatus_pendingDemand_excludesConfirmedOrders() {
+    void getStockStatus_pendingDemand_includesConfirmedOrders() {
+        // CONFIRMED = 출고 대기 중 (아직 재고 미차감) → pendingDemand에 포함되어야 함
         Order o = orderService.reserve("S-001", "고객", 10); // stock 충분
         orderService.approve(o.getOrderId()); // → CONFIRMED
         List<StockStatusDto> list = service.getStockStatus();
         StockStatusDto s001 = list.stream()
                 .filter(d -> d.getSample().getId().equals("S-001"))
                 .findFirst().get();
-        assertEquals(0, s001.getPendingDemand());
+        assertEquals(10, s001.getPendingDemand());
     }
 
     @Test
