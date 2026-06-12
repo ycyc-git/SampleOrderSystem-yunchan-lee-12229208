@@ -58,6 +58,11 @@ class ReleaseControllerTest {
 
     private Order makeConfirmedOrder(String sampleId, String customer, int qty) {
         Order o = orderService.reserve(sampleId, customer, qty);
+        Sample s = sampleRepo.findById(sampleId).get();
+        int toReserve = Math.min(s.getStock(), qty);
+        s.setReservedStock(s.getReservedStock() + toReserve);
+        s.setStock(s.getStock() - toReserve);
+        sampleRepo.save(s);
         o.transition(OrderStatus.CONFIRMED);
         orderRepo.save(o);
         return o;

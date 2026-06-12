@@ -204,20 +204,24 @@ public class SampleController {
     // ── 공통 테이블 출력 ──────────────────────────────────────────
 
     private void printTableHeader() {
-        out.printf("%-12s %-20s %-14s %-8s %s%n",
-                "ID", "시료명", "평균 생산시간", "수율", "현재 재고");
-        out.println("------------ -------------------- -------------- -------- ----------");
+        out.printf("%-12s %-20s %-14s %-8s %-12s %s%n",
+                "ID", "시료명", "평균 생산시간", "수율", "가용 재고", "예약 재고");
+        out.println("------------ -------------------- -------------- -------- ------------ ----------");
     }
 
     private void printTableRow(Sample s) {
         String stockStr = s.getStock() == 0
                 ? Ansi.RED + "0 ea" + Ansi.RESET
                 : s.getStock() + " ea";
-        out.printf("%-12s %-20s %-14s %-8s %s%n",
+        String reservedStr = s.getReservedStock() > 0
+                ? Ansi.YELLOW + s.getReservedStock() + " ea" + Ansi.RESET
+                : "0 ea";
+        out.printf("%-12s %-20s %-14s %-8s %-12s %s%n",
                 s.getId(),
                 s.getName(),
                 String.format("%.1f min/ea", s.getAvgProductionTime()),
                 String.format("%.2f", s.getYield()),
-                stockStr);
+                stockStr,
+                reservedStr);
     }
 }

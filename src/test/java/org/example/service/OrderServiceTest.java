@@ -233,11 +233,13 @@ class OrderServiceTest {
     }
 
     @Test
-    void approve_sufficientStock_doesNotDeductStock() {
-        // 재고 차감은 release() 시점에만 발생해야 한다
+    void approve_sufficientStock_movesStockToReserved() {
+        // 승인 시 가용 재고 → 예약 재고로 이동
         Order o = service.reserve("S-001", "고객", 30); // stock=100
         service.approve(o.getOrderId());
-        assertEquals(100, sampleRepo.findById("S-001").get().getStock());
+        Sample s = sampleRepo.findById("S-001").get();
+        assertEquals(70, s.getStock());
+        assertEquals(30, s.getReservedStock());
     }
 
     @Test
@@ -248,10 +250,13 @@ class OrderServiceTest {
     }
 
     @Test
-    void approve_insufficientStock_doesNotDeductStock() {
-        Order o = service.reserve("S-002", "고객", 200); // stock=50
+    void approve_insufficientStock_reservesAvailableStock() {
+        // stock=50, qty=200 → shortage=150, 가용 50 → 예약으로 이동
+        Order o = service.reserve("S-002", "고객", 200);
         service.approve(o.getOrderId());
-        assertEquals(50, sampleRepo.findById("S-002").get().getStock());
+        Sample s = sampleRepo.findById("S-002").get();
+        assertEquals(0, s.getStock());
+        assertEquals(50, s.getReservedStock());
     }
 
     @Test

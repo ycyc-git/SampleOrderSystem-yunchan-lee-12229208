@@ -102,7 +102,11 @@ public class ProductionLineService {
 
         // ── 생산 완료 처리 ────────────────────────────────────────
         Sample sample = current.getOrder().getSample();
-        sample.setStock(sample.getStock() + current.getActualProductionQty());
+        int shortage = current.getShortage();
+        int actualQty = current.getActualProductionQty();
+        // 생산량 중 부족분은 예약 재고로, 초과분은 가용 재고로
+        sample.setStock(sample.getStock() + actualQty - shortage);
+        sample.setReservedStock(sample.getReservedStock() + shortage);
         sampleRepo.save(sample);
 
         current.getOrder().transition(OrderStatus.CONFIRMED);

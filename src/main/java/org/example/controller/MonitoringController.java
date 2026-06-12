@@ -95,8 +95,8 @@ public class MonitoringController {
         List<StockStatusDto> list = service.getStockStatus();
         out.println("재고 현황");
         out.println();
-        out.printf("%-24s %-11s %-10s %s%n", "시료명", "재고", "상태", "잔여율");
-        out.println("------------------------ ----------- ---------- -------------------");
+        out.printf("%-24s %-11s %-11s %-10s %s%n", "시료명", "가용 재고", "예약 재고", "상태", "잔여율");
+        out.println("------------------------ ----------- ----------- ---------- -------------------");
 
         if (list.isEmpty()) {
             out.println("등록된 시료가 없습니다.");
@@ -109,9 +109,13 @@ public class MonitoringController {
                 };
                 String labelBadge = labelColor + "[" + dto.getStockLabel() + "]" + Ansi.RESET;
                 String bar = progressBar(dto.getRemainingRate());
-                out.printf("%-24s %-11s %-10s %s%n",
+                String reservedDisplay = dto.getReservedStock() > 0
+                        ? Ansi.YELLOW + dto.getReservedStock() + " ea" + Ansi.RESET
+                        : "0 ea";
+                out.printf("%-24s %-11s %-11s %-10s %s%n",
                         dto.getSample().getName(),
                         dto.getStock() + " ea",
+                        reservedDisplay,
                         labelBadge,
                         bar);
             }

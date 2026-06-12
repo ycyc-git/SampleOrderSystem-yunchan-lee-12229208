@@ -38,9 +38,14 @@ class ReleaseServiceTest {
         sampleRepo.add(new Sample("S-002", "GaN 에피택셀", 0.3, 0.78, 0));
     }
 
-    /** RESERVED → CONFIRMED 으로 상태 강제 전환 (approve via OrderService 대신 직접 전환) */
+    /** RESERVED → CONFIRMED 으로 상태 강제 전환, 예약 재고도 반영 */
     private Order makeConfirmedOrder(String sampleId, String customer, int qty) {
         Order o = orderService.reserve(sampleId, customer, qty);
+        Sample s = sampleRepo.findById(sampleId).get();
+        int toReserve = Math.min(s.getStock(), qty);
+        s.setReservedStock(s.getReservedStock() + toReserve);
+        s.setStock(s.getStock() - toReserve);
+        sampleRepo.save(s);
         o.transition(OrderStatus.CONFIRMED);
         orderRepo.save(o);
         return o;
@@ -225,10 +230,12 @@ class ReleaseServiceTest {
     }
 
     @Test
-    void requeueToProducing_doesNotDeductStock() {
+    void requeueToProducing_doesNotDestroyPhysicalInventory() {
+        // 재큐 후 전체 물리 재고(가용 + 예약)는 보존되어야 함
         Order o = makeConfirmedOrder("S-001", "고객A", 200);
         releaseService.requeueToProducing(o.getOrderId());
-        assertEquals(100, sampleRepo.findById("S-001").get().getStock());
+        Sample s = sampleRepo.findById("S-001").get();
+        assertEquals(100, s.getStock() + s.getReservedStock());
     }
 
     // ── requeueToProducing — 오류 케이스 ─────────────────────────

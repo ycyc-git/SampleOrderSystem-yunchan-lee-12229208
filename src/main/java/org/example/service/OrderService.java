@@ -70,10 +70,22 @@ public class OrderService {
         Order order = repository.findById(orderId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 주문입니다."));
         Sample sample = order.getSample();
-        int shortage = Math.max(0, order.getQuantity() - sample.getStock());
+        int qty = order.getQuantity();
+        int shortage = Math.max(0, qty - sample.getStock());
         if (shortage == 0) {
+            // 재고 전량 예약으로 이동
+            sample.setReservedStock(sample.getReservedStock() + qty);
+            sample.setStock(sample.getStock() - qty);
+            sampleRepository.save(sample);
             order.transition(OrderStatus.CONFIRMED);
         } else {
+            // 가용 재고는 모두 예약으로 이동, 부족분은 생산
+            int available = sample.getStock();
+            if (available > 0) {
+                sample.setReservedStock(sample.getReservedStock() + available);
+                sample.setStock(0);
+                sampleRepository.save(sample);
+            }
             order.transition(OrderStatus.PRODUCING);
             if (productionLineService != null) {
                 productionLineService.enqueue(order, shortage);

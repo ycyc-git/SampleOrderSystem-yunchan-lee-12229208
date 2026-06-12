@@ -37,20 +37,20 @@ public class MonitoringService {
     }
 
     public List<StockStatusDto> getStockStatus() {
-        List<Order> pending = orderRepository.findAll().stream()
-                .filter(o -> o.getStatus() == OrderStatus.RESERVED
-                          || o.getStatus() == OrderStatus.CONFIRMED
-                          || o.getStatus() == OrderStatus.PRODUCING)
+        // pendingDemand: 아직 승인되지 않은 RESERVED 주문 수량 (가용 재고와 경쟁)
+        List<Order> reservedOrders = orderRepository.findAll().stream()
+                .filter(o -> o.getStatus() == OrderStatus.RESERVED)
                 .collect(Collectors.toList());
 
         return sampleRepository.findAll().stream()
-                .map(sample -> buildDto(sample, pending))
+                .map(sample -> buildDto(sample, reservedOrders))
                 .collect(Collectors.toList());
     }
 
-    private StockStatusDto buildDto(Sample sample, List<Order> pending) {
+    private StockStatusDto buildDto(Sample sample, List<Order> reservedOrders) {
         int stock = sample.getStock();
-        int pendingDemand = pending.stream()
+        int reservedStock = sample.getReservedStock();
+        int pendingDemand = reservedOrders.stream()
                 .filter(o -> o.getSample().getId().equals(sample.getId()))
                 .mapToInt(Order::getQuantity)
                 .sum();
@@ -58,6 +58,6 @@ public class MonitoringService {
                 : stock < pendingDemand ? "부족" : "여유";
         int remainingRate = (stock + pendingDemand == 0) ? 0
                 : (int) (stock * 100.0 / (stock + pendingDemand));
-        return new StockStatusDto(sample, stock, pendingDemand, stockLabel, remainingRate);
+        return new StockStatusDto(sample, stock, reservedStock, pendingDemand, stockLabel, remainingRate);
     }
 }

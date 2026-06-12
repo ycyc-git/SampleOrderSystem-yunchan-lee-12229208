@@ -1,0 +1,139 @@
+[
+  {
+    "orderId": "ORD-20260612-0001",
+    "sampleId": "S-005",
+    "customerName": "이윤찬",
+    "quantity": 10,
+    "status": "RELEASE",
+    "createdAt": "2026-06-12T14:02:44.895231100",
+    "releasedAt": "2026-06-12T14:53:06.366744300"
+  },
+  {
+    "orderId": "ORD-20260612-0002",
+    "sampleId": "S-001",
+    "customerName": "파운드리",
+    "quantity": 100,
+    "status": "REJECTED",
+    "createdAt": "2026-06-12T14:03:13.582362200"
+  },
+  {
+    "orderId": "ORD-20260612-0003",
+    "sampleId": "S-001",
+    "customerName": "메모리",
+    "quantity": 150,
+    "status": "RELEASE",
+    "createdAt": "2026-06-12T14:24:57.148332200",
+    "releasedAt": "2026-06-12T14:53:26.089452200"
+  },
+  {
+    "orderId": "ORD-20260612-0004",
+    "sampleId": "S-005",
+    "customerName": "파운드리",
+    "quantity": 11,
+    "status": "RELEASE",
+    "createdAt": "2026-06-12T14:32:33.223756600",
+    "releasedAt": "2026-06-12T15:04:39.861691500"
+  },
+  {
+    "orderId": "ORD-20260612-0005",
+    "sampleId": "S-005",
+    "customerName": "CSS",
+    "quantity": 100,
+    "status": "RELEASE",
+    "createdAt": "2026-06-12T14:41:18.484335800",
+    "releasedAt": "2026-06-12T15:36:41.969709400"
+  },
+  {
+    "orderId": "ORD-20260612-0006",
+    "sampleId": "S-002",
+    "customerName": "하이닉스",
+    "quantity": 1000,
+    "status": "RELEASE",
+    "createdAt": "2026-06-12T15:03:29.089122300",
+    "releasedAt": "2026-06-12T15:10:27.253148300"
+  },
+  {
+    "orderId": "ORD-20260612-0007",
+    "sampleId": "S-005",
+    "customerName": "11",
+    "quantity": 50,
+    "status": "RELEASE",
+    "createdAt": "2026-06-12T15:06:45.149615600",
+    "releasedAt": "2026-06-12T15:10:20.580330400"
+  },
+  {
+    "orderId": "ORD-20260612-0008",
+    "sampleId": "S-005",
+    "customerName": "22",
+    "quantity": 70,
+    "status": "RELEASE",
+    "createdAt": "2026-06-12T15:07:08.089600",
+    "releasedAt": "2026-06-12T15:36:47.808889600"
+  },
+  {
+    "orderId": "ORD-20260612-0009",
+    "sampleId": "S-002",
+    "customerName": "33",
+    "quantity": 50,
+    "status": "RELEASE",
+    "createdAt": "2026-06-12T15:09:16.923566400",
+    "releasedAt": "2026-06-12T15:09:39.664573400"
+  },
+  {
+    "orderId": "ORD-20260612-0010",
+    "sampleId": "S-003",
+    "customerName": "44",
+    "quantity": 3000,
+    "status": "CONFIRMED",
+    "createdAt": "2026-06-12T15:35:26.861455300"
+  },
+  {
+    "orderId": "ORD-20260612-0011",
+    "sampleId": "S-002",
+    "customerName": "55",
+    "quantity": 200,
+    "status": "CONFIRMED",
+    "createdAt": "2026-06-12T15:57:30.932693500"
+  },
+  {
+    "orderId": "ORD-20260612-0012",
+    "sampleId": "S-003",
+    "customerName": "77",
+    "quantity": 40,
+    "status": "CONFIRMED",
+    "createdAt": "2026-06-12T15:58:56.079614800"
+  },
+  {
+    "orderId": "ORD-20260612-0013",
+    "sampleId": "S-001",
+    "customerName": "99",
+    "quantity": 180,
+    "status": "CONFIRMED",
+    "createdAt": "2026-06-12T16:01:58.283669500"
+  },
+  {
+    "orderId": "ORD-20260612-0014",
+    "sampleId": "S-005",
+    "customerName": "123",
+    "quantity": 7,
+    "status": "CONFIRMED",
+    "createdAt": "2026-06-12T16:11:15.738192700"
+  },
+  {
+    "orderId": "ORD-20260612-0015",
+    "sampleId": "S-005",
+    "customerName": "234",
+    "quantity": 6,
+    "status": "RELEASE",
+    "createdAt": "2026-06-12T16:11:26.867303100",
+    "releasedAt": "2026-06-12T16:12:08.568349800"
+  },
+  {
+    "orderId": "ORD-20260612-0016",
+    "sampleId": "S-005",
+    "customerName": "345",
+    "quantity": 6,
+    "status": "CONFIRMED",
+    "createdAt": "2026-06-12T16:11:59.980210500"
+  }
+]

@@ -250,13 +250,18 @@ class ProductionLineServiceTest {
     }
 
     @Test
-    void tick_completed_increasesStock() {
-        reserveAndApprove("S-002", "고객", 50); // S-002 stock=0
+    void tick_completed_movesShortageToReservedAndExcessToStock() {
+        // S-002 stock=0, qty=50 → shortage=50
+        // 생산 완료: 부족분=reservedStock, 생산 잉여=stock
+        reserveAndApprove("S-002", "고객", 50);
         ProductionJob job = service.getCurrentJob().get();
-        int expectedStock = job.getActualProductionQty();
+        int shortage = job.getShortage();
+        int actualQty = job.getActualProductionQty();
         expireCurrentJob();
         service.tick();
-        assertEquals(expectedStock, sampleRepo.findById("S-002").get().getStock());
+        Sample s = sampleRepo.findById("S-002").get();
+        assertEquals(actualQty - shortage, s.getStock());
+        assertEquals(shortage, s.getReservedStock());
     }
 
     @Test

@@ -7,6 +7,7 @@ public class Sample {
     private double avgProductionTime;
     private double yield;
     private int stock;
+    private int reservedStock;
 
     // Gson deserialization
     private Sample() {}
@@ -17,6 +18,7 @@ public class Sample {
         this.avgProductionTime = avgProductionTime;
         this.yield = yield;
         this.stock = stock;
+        this.reservedStock = 0;
     }
 
     public String getId()                { return id; }
@@ -25,4 +27,6 @@ public class Sample {
     public double getYield()             { return yield; }
     public int getStock()                { return stock; }
     public void setStock(int stock)      { this.stock = stock; }
+    public int getReservedStock()        { return reservedStock; }
+    public void setReservedStock(int reservedStock) { this.reservedStock = reservedStock; }
 }

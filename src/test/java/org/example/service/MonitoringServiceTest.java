@@ -168,26 +168,40 @@ class MonitoringServiceTest {
     }
 
     @Test
-    void getStockStatus_pendingDemand_includesProducingOrders() {
+    void getStockStatus_pendingDemand_excludesProducingOrders() {
+        // PRODUCING 주문의 가용 재고는 이미 예약 재고로 이동됨 → pendingDemand에 미포함
         Order o = orderService.reserve("S-002", "고객", 200); // 재고 부족 → PRODUCING
         orderService.approve(o.getOrderId());
         List<StockStatusDto> list = service.getStockStatus();
         StockStatusDto s002 = list.stream()
                 .filter(d -> d.getSample().getId().equals("S-002"))
                 .findFirst().get();
-        assertEquals(200, s002.getPendingDemand());
+        assertEquals(0, s002.getPendingDemand());
     }
 
     @Test
-    void getStockStatus_pendingDemand_includesConfirmedOrders() {
-        // CONFIRMED = 출고 대기 중 (아직 재고 미차감) → pendingDemand에 포함되어야 함
+    void getStockStatus_reservedStock_includesProducingOrders() {
+        // PRODUCING 승인 시 가용 재고(50)가 예약 재고로 이동
+        Order o = orderService.reserve("S-002", "고객", 200);
+        orderService.approve(o.getOrderId()); // stock=50 → reservedStock=50
+        List<StockStatusDto> list = service.getStockStatus();
+        StockStatusDto s002 = list.stream()
+                .filter(d -> d.getSample().getId().equals("S-002"))
+                .findFirst().get();
+        assertEquals(50, s002.getReservedStock());
+    }
+
+    @Test
+    void getStockStatus_pendingDemand_excludesConfirmedOrders() {
+        // CONFIRMED 승인 시 재고가 이미 예약 재고로 이동됨 → pendingDemand에 미포함
         Order o = orderService.reserve("S-001", "고객", 10); // stock 충분
-        orderService.approve(o.getOrderId()); // → CONFIRMED
+        orderService.approve(o.getOrderId()); // → CONFIRMED (stock 90→예약10)
         List<StockStatusDto> list = service.getStockStatus();
         StockStatusDto s001 = list.stream()
                 .filter(d -> d.getSample().getId().equals("S-001"))
                 .findFirst().get();
-        assertEquals(10, s001.getPendingDemand());
+        assertEquals(0, s001.getPendingDemand());
+        assertEquals(10, s001.getReservedStock());
     }
 
     @Test

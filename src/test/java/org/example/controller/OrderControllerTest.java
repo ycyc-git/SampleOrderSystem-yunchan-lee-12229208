@@ -328,11 +328,13 @@ class OrderControllerTest {
     }
 
     @Test
-    void approveOrReject_Y_sufficientStock_doesNotDeductStock() {
-        // 재고 차감은 release() 시점에만 발생 — approve는 상태 전환만
+    void approveOrReject_Y_sufficientStock_movesStockToReserved() {
+        // 승인 시 가용 재고 → 예약 재고로 이동
         orderService.reserve("S-001", "고객", 30); // stock=100
         approveWith("1\nY\n");
-        assertEquals(100, sampleService.findById("S-001").get().getStock());
+        Sample s = sampleService.findById("S-001").get();
+        assertEquals(70, s.getStock());
+        assertEquals(30, s.getReservedStock());
     }
 
     @Test

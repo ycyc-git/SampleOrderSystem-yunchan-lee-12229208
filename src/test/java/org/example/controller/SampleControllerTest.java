@@ -258,7 +258,7 @@ class SampleControllerTest {
         service.register("S-001", "실리콘 웨이퍼", 0.5, 0.9, 10);
         String output = runWith("3\n2\n웨이퍼\n0\n0\n");
         assertTrue(output.contains("평균 생산시간"));
-        assertTrue(output.contains("현재 재고"));
+        assertTrue(output.contains("가용 재고"));
     }
 
     // ── [3] 수율 검색 ──────────────────────────────────────────────
