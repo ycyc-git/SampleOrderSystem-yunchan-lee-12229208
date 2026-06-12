@@ -30,7 +30,7 @@ class ProductionLineServiceTest {
     void setUp() {
         sampleRepo = new SampleRepository(tempDir.resolve("samples.json").toString());
         orderRepo = new OrderRepository(tempDir.resolve("orders.json").toString(), sampleRepo);
-        service = new ProductionLineService(tempDir.resolve("jobs.json").toString(), orderRepo);
+        service = new ProductionLineService(tempDir.resolve("jobs.json").toString(), orderRepo, sampleRepo);
         orderService = new OrderService(orderRepo, sampleRepo, service);
 
         sampleRepo.add(new Sample("S-001", "실리콘 웨이퍼", 0.5, 0.92, 100));
@@ -149,7 +149,7 @@ class ProductionLineServiceTest {
         reserveAndApprove("S-002", "고객2", 30);
 
         ProductionLineService reloaded = new ProductionLineService(
-                tempDir.resolve("jobs.json").toString(), orderRepo);
+                tempDir.resolve("jobs.json").toString(), orderRepo, sampleRepo);
         assertEquals(2, reloaded.getTotalQueueSize());
     }
 
@@ -159,7 +159,7 @@ class ProductionLineServiceTest {
         ProductionJob original = service.getCurrentJob().get();
 
         ProductionLineService reloaded = new ProductionLineService(
-                tempDir.resolve("jobs.json").toString(), orderRepo);
+                tempDir.resolve("jobs.json").toString(), orderRepo, sampleRepo);
         ProductionJob restored = reloaded.getCurrentJob().get();
 
         assertEquals(original.getJobId(), restored.getJobId());
@@ -175,7 +175,7 @@ class ProductionLineServiceTest {
         reserveAndApprove("S-002", "고객2", 30);
 
         ProductionLineService reloaded = new ProductionLineService(
-                tempDir.resolve("jobs.json").toString(), orderRepo);
+                tempDir.resolve("jobs.json").toString(), orderRepo, sampleRepo);
         assertEquals("고객1",
                 reloaded.getCurrentJob().get().getOrder().getCustomerName());
         assertEquals("고객2",
@@ -185,7 +185,7 @@ class ProductionLineServiceTest {
     @Test
     void constructorWithMissingFile_startsEmpty() {
         ProductionLineService fresh = new ProductionLineService(
-                tempDir.resolve("nonexistent.json").toString(), orderRepo);
+                tempDir.resolve("nonexistent.json").toString(), orderRepo, sampleRepo);
         assertEquals(0, fresh.getTotalQueueSize());
     }
 
@@ -203,5 +203,135 @@ class ProductionLineServiceTest {
         Order o = orderService.reserve("S-001", "고객", 30); // stock=100
         orderService.approve(o.getOrderId());
         assertEquals(0, service.getTotalQueueSize());
+    }
+
+    // ── tick() ────────────────────────────────────────────────────
+
+    /** tick이 완료 조건을 충족시키도록 startedAt을 과거로 설정 */
+    private void expireCurrentJob() {
+        ProductionJob job = service.getCurrentJob().get();
+        double totalMin = job.getTotalProductionTime();
+        long pastMs = (long)(totalMin * ProductionLineService.DEFAULT_MS_PER_MINUTE) + 500;
+        job.setStartedAt(LocalDateTime.now().minusNanos(pastMs * 1_000_000L));
+    }
+
+    @Test
+    void tick_idle_doesNothing() {
+        // 큐가 비어 있으면 예외 없이 종료
+        assertDoesNotThrow(() -> service.tick());
+        assertEquals(0, service.getTotalQueueSize());
+    }
+
+    @Test
+    void tick_inProgress_doesNotComplete() throws InterruptedException {
+        reserveAndApprove("S-002", "고객", 50);
+        // startedAt을 방금 전으로 설정 — 아직 totalMs 미경과
+        service.getCurrentJob().get().setStartedAt(LocalDateTime.now());
+        service.tick();
+        assertEquals(1, service.getTotalQueueSize());
+        assertEquals(OrderStatus.PRODUCING, service.getCurrentJob().get().getOrder().getStatus());
+    }
+
+    @Test
+    void tick_completed_removesJobFromQueue() {
+        reserveAndApprove("S-002", "고객", 50);
+        expireCurrentJob();
+        service.tick();
+        assertEquals(0, service.getTotalQueueSize());
+    }
+
+    @Test
+    void tick_completed_transitionsOrderToConfirmed() {
+        Order o = orderService.reserve("S-002", "고객", 50);
+        orderService.approve(o.getOrderId());
+        expireCurrentJob();
+        service.tick();
+        assertEquals(OrderStatus.CONFIRMED, orderRepo.findById(o.getOrderId()).get().getStatus());
+    }
+
+    @Test
+    void tick_completed_increasesStock() {
+        reserveAndApprove("S-002", "고객", 50); // S-002 stock=0
+        ProductionJob job = service.getCurrentJob().get();
+        int expectedStock = job.getActualProductionQty();
+        expireCurrentJob();
+        service.tick();
+        assertEquals(expectedStock, sampleRepo.findById("S-002").get().getStock());
+    }
+
+    @Test
+    void tick_completed_startsNextJob() {
+        reserveAndApprove("S-002", "고객1", 50);
+        reserveAndApprove("S-002", "고객2", 30);
+        expireCurrentJob();
+        service.tick();
+
+        assertEquals(1, service.getTotalQueueSize());
+        ProductionJob next = service.getCurrentJob().get();
+        assertEquals("고객2", next.getOrder().getCustomerName());
+        assertNotNull(next.getStartedAt());
+    }
+
+    @Test
+    void tick_twoCompletions_processBothInSequence() {
+        reserveAndApprove("S-002", "고객1", 50);
+        reserveAndApprove("S-003", "고객2", 20);
+
+        expireCurrentJob();
+        service.tick();
+        assertEquals(1, service.getTotalQueueSize());
+
+        expireCurrentJob();
+        service.tick();
+        assertEquals(0, service.getTotalQueueSize());
+    }
+
+    @Test
+    void tick_completed_persistsEmptyQueue() {
+        reserveAndApprove("S-002", "고객", 50);
+        expireCurrentJob();
+        service.tick();
+
+        ProductionLineService reloaded = new ProductionLineService(
+                tempDir.resolve("jobs.json").toString(), orderRepo, sampleRepo);
+        assertEquals(0, reloaded.getTotalQueueSize());
+    }
+
+    // ── getProgressPercent ────────────────────────────────────────
+
+    @Test
+    void getProgressPercent_returns0_whenIdle() {
+        assertEquals(0, service.getProgressPercent());
+    }
+
+    @Test
+    void getProgressPercent_returns0_justAfterEnqueue() {
+        reserveAndApprove("S-002", "고객", 50);
+        service.getCurrentJob().get().setStartedAt(LocalDateTime.now());
+        int progress = service.getProgressPercent();
+        assertTrue(progress >= 0 && progress <= 10,
+                "Expected 0~10% just after start, got: " + progress);
+    }
+
+    @Test
+    void getProgressPercent_returns100_whenExpired() {
+        reserveAndApprove("S-002", "고객", 50);
+        expireCurrentJob();
+        assertEquals(100, service.getProgressPercent());
+    }
+
+    // ── getEstimatedFinishTime ────────────────────────────────────
+
+    @Test
+    void getEstimatedFinishTime_returnsPlaceholder_whenIdle() {
+        assertEquals("--:--", service.getEstimatedFinishTime());
+    }
+
+    @Test
+    void getEstimatedFinishTime_returnsHHmm_whenRunning() {
+        reserveAndApprove("S-002", "고객", 50);
+        String result = service.getEstimatedFinishTime();
+        assertTrue(result.matches("\\d{2}:\\d{2}"),
+                "Expected HH:mm format but got: " + result);
     }
 }

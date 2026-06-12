@@ -34,7 +34,7 @@ class ProductionLineControllerTest {
         OrderRepository orderRepo =
                 new OrderRepository(tempDir.resolve("orders.json").toString(), sampleRepo);
         productionLineService = new ProductionLineService(
-                tempDir.resolve("jobs.json").toString(), orderRepo);
+                tempDir.resolve("jobs.json").toString(), orderRepo, sampleRepo);
         orderService = new OrderService(orderRepo, sampleRepo, productionLineService);
 
         sampleRepo.add(new Sample("S-001", "실리콘 웨이퍼-8인치", 0.5, 0.92, 100));

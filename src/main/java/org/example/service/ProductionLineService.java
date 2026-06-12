@@ -3,9 +3,11 @@ package org.example.service;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import org.example.domain.Order;
+import org.example.domain.OrderStatus;
 import org.example.domain.ProductionJob;
 import org.example.domain.Sample;
 import org.example.repository.OrderRepository;
+import org.example.repository.SampleRepository;
 import org.example.util.GsonConfig;
 
 import java.io.*;
@@ -14,32 +16,49 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 public class ProductionLineService {
 
     private static final String DEFAULT_PATH = "data/production_jobs.json";
-    private static final DateTimeFormatter DATE_FMT =
-            DateTimeFormatter.ofPattern("yyyyMMdd");
+    private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyyMMdd");
+    private static final DateTimeFormatter TIME_FMT = DateTimeFormatter.ofPattern("HH:mm");
+
+    /** 시연 모드: 1분 = 1초 (1000ms). 실 운영 시 60_000L 으로 교체. */
+    static final long DEFAULT_MS_PER_MINUTE = 1_000L;
 
     private final String filePath;
     private final OrderRepository orderRepo;
+    private final SampleRepository sampleRepo;
     private final Gson gson;
+    private final long msPerMinute;
     private final LinkedList<ProductionJob> queue = new LinkedList<>();
 
-    public ProductionLineService(OrderRepository orderRepo) {
-        this(DEFAULT_PATH, orderRepo);
+    public ProductionLineService(OrderRepository orderRepo, SampleRepository sampleRepo) {
+        this(DEFAULT_PATH, orderRepo, sampleRepo, DEFAULT_MS_PER_MINUTE);
     }
 
-    public ProductionLineService(String filePath, OrderRepository orderRepo) {
+    public ProductionLineService(String filePath, OrderRepository orderRepo,
+                                 SampleRepository sampleRepo) {
+        this(filePath, orderRepo, sampleRepo, DEFAULT_MS_PER_MINUTE);
+    }
+
+    ProductionLineService(String filePath, OrderRepository orderRepo,
+                          SampleRepository sampleRepo, long msPerMinute) {
         this.filePath = filePath;
         this.orderRepo = orderRepo;
+        this.sampleRepo = sampleRepo;
+        this.msPerMinute = msPerMinute;
         this.gson = GsonConfig.create();
         loadFromFile();
     }
 
-    public ProductionJob enqueue(Order order, int shortage) {
+    // ── 생산 큐 ───────────────────────────────────────────────────
+
+    public synchronized ProductionJob enqueue(Order order, int shortage) {
         Sample sample = order.getSample();
         int actualQty = (int) Math.ceil(shortage / (sample.getYield() * 0.9));
         double totalTime = sample.getAvgProductionTime() * actualQty;
@@ -52,22 +71,87 @@ public class ProductionLineService {
         return job;
     }
 
-    public Optional<ProductionJob> getCurrentJob() {
+    public synchronized Optional<ProductionJob> getCurrentJob() {
         return queue.isEmpty() ? Optional.empty() : Optional.of(queue.peek());
     }
 
-    public List<ProductionJob> getWaitingQueue() {
+    public synchronized List<ProductionJob> getWaitingQueue() {
         if (queue.size() <= 1) return List.of();
         List<ProductionJob> all = new ArrayList<>(queue);
         return all.subList(1, all.size());
     }
 
-    public int getTotalQueueSize() {
+    public synchronized int getTotalQueueSize() {
         return queue.size();
     }
 
-    public int getProgressPercent() {
-        return 0; // Phase 08에서 tick()과 함께 구현
+    // ── tick ──────────────────────────────────────────────────────
+
+    public synchronized void tick() {
+        ProductionJob current = queue.peek();
+        if (current == null) return; // IDLE
+
+        if (current.getStartedAt() == null) {
+            current.setStartedAt(LocalDateTime.now());
+        }
+
+        long elapsed = System.currentTimeMillis() - toEpochMillis(current.getStartedAt());
+        long totalMs = (long) (current.getTotalProductionTime() * msPerMinute);
+
+        if (elapsed < totalMs) return; // 진행 중
+
+        // ── 생산 완료 처리 ────────────────────────────────────────
+        Sample sample = current.getOrder().getSample();
+        sample.setStock(sample.getStock() + current.getActualProductionQty());
+        sampleRepo.save(sample);
+
+        current.getOrder().transition(OrderStatus.CONFIRMED);
+        orderRepo.save(current.getOrder());
+
+        queue.poll();
+
+        ProductionJob next = queue.peek();
+        if (next != null) {
+            next.setStartedAt(LocalDateTime.now());
+        }
+        saveToFile();
+    }
+
+    // ── 진행률 / 완료 예정 ────────────────────────────────────────
+
+    public synchronized int getProgressPercent() {
+        ProductionJob current = queue.peek();
+        if (current == null || current.getStartedAt() == null) return 0;
+        long elapsed = System.currentTimeMillis() - toEpochMillis(current.getStartedAt());
+        long totalMs = (long) (current.getTotalProductionTime() * msPerMinute);
+        return (int) Math.min(100, elapsed * 100 / totalMs);
+    }
+
+    public synchronized String getEstimatedFinishTime() {
+        ProductionJob current = queue.peek();
+        if (current == null || current.getStartedAt() == null) return "--:--";
+        long elapsed = System.currentTimeMillis() - toEpochMillis(current.getStartedAt());
+        long totalMs = (long) (current.getTotalProductionTime() * msPerMinute);
+        long remainMs = Math.max(0, totalMs - elapsed);
+        return LocalTime.now().plusSeconds(remainMs / 1000).format(TIME_FMT);
+    }
+
+    public synchronized long getMsPerMinute() {
+        return msPerMinute;
+    }
+
+    public synchronized long getRemainingMs() {
+        ProductionJob current = queue.peek();
+        if (current == null || current.getStartedAt() == null) return 0;
+        long elapsed = System.currentTimeMillis() - toEpochMillis(current.getStartedAt());
+        long totalMs = (long) (current.getTotalProductionTime() * msPerMinute);
+        return Math.max(0, totalMs - elapsed);
+    }
+
+    // ── 내부 유틸 ─────────────────────────────────────────────────
+
+    private long toEpochMillis(LocalDateTime ldt) {
+        return ldt.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
     }
 
     private String generateJobId() {
@@ -78,6 +162,8 @@ public class ProductionLineService {
                 .count();
         return String.format("%s%04d", prefix, count + 1);
     }
+
+    // ── 영속성 ────────────────────────────────────────────────────
 
     private void loadFromFile() {
         Path path = Paths.get(filePath);

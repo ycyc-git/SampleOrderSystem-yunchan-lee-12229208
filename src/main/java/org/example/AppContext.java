@@ -13,18 +13,23 @@ import org.example.service.ProductionLineService;
 import org.example.service.SampleService;
 import org.example.util.ConsoleReader;
 
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+
 public class AppContext {
 
     private final SampleRepository sampleRepository;
     private final OrderService orderService;
     private final ProductionLineService productionLineService;
+    private final ScheduledExecutorService scheduler;
     private final MainMenu mainMenu;
 
     public AppContext() {
         ConsoleReader consoleReader = new ConsoleReader();
         sampleRepository = new SampleRepository();
         OrderRepository orderRepository = new OrderRepository(sampleRepository);
-        productionLineService = new ProductionLineService(orderRepository);
+        productionLineService = new ProductionLineService(orderRepository, sampleRepository);
         SampleService sampleService = new SampleService(sampleRepository);
         orderService = new OrderService(orderRepository, sampleRepository, productionLineService);
 
@@ -40,7 +45,13 @@ public class AppContext {
         ProductionLineController productionLineController =
                 new ProductionLineController(productionLineService, consoleReader, System.out);
 
-        mainMenu = new MainMenu(consoleReader) {
+        scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread t = new Thread(r, "production-tick");
+            t.setDaemon(true);
+            return t;
+        });
+
+        mainMenu = new MainMenu(consoleReader, System.out, this::stop) {
             @Override
             protected int getSampleCount() {
                 return sampleRepository.findAll().size();
@@ -67,9 +78,16 @@ public class AppContext {
         mainMenu.setMenuHandler("3", orderController::approveOrReject);
         mainMenu.setMenuHandler("4", monitoringController::run);
         mainMenu.setMenuHandler("5", productionLineController::run);
+
+        scheduler.scheduleAtFixedRate(productionLineService::tick, 0, 1, TimeUnit.SECONDS);
     }
 
     public void start() {
         mainMenu.run();
+    }
+
+    private void stop() {
+        scheduler.shutdownNow();
+        System.exit(0);
     }
 }

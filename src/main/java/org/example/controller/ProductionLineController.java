@@ -76,7 +76,7 @@ public class ProductionLineController {
         int progress = service.getProgressPercent();
         int filled = progress / 10;
         String bar = "[" + "█".repeat(filled) + "░".repeat(10 - filled) + "]";
-        String estimatedFinish = estimateFinish(job.getStartedAt(), job.getTotalProductionTime());
+        String estimatedFinish = service.getEstimatedFinishTime();
         out.printf("  진행       %s  %d%%    완료 예정  %s%n", bar, progress, estimatedFinish);
         out.println();
     }
@@ -95,13 +95,14 @@ public class ProductionLineController {
                 "순서", "주문번호", "시료", "주문량", "부족분", "실생산량", "예상 완료");
         out.println("------- -------------- ----------------- ----------- ----------- ----------- ---------");
 
-        LocalDateTime runningFinish = estimateFinishTime(
-                current.getStartedAt(), current.getTotalProductionTime());
+        long msPerMinute = service.getMsPerMinute();
+        LocalDateTime runningFinish = LocalDateTime.now()
+                .plusNanos(service.getRemainingMs() * 1_000_000L);
 
         for (int i = 0; i < waiting.size(); i++) {
             ProductionJob job = waiting.get(i);
-            LocalDateTime jobFinish = runningFinish.plusSeconds(
-                    (long)(job.getTotalProductionTime() * 60));
+            long jobMs = (long)(job.getTotalProductionTime() * msPerMinute);
+            LocalDateTime jobFinish = runningFinish.plusNanos(jobMs * 1_000_000L);
             out.printf("%-7d %-14s %-17s %-11s %-11s %-11s %-9s%n",
                     i + 1,
                     job.getOrder().getOrderId(),
@@ -114,12 +115,4 @@ public class ProductionLineController {
         }
     }
 
-    private LocalDateTime estimateFinishTime(LocalDateTime startedAt, double totalMinutes) {
-        if (startedAt == null) return LocalDateTime.now();
-        return startedAt.plusSeconds((long)(totalMinutes * 60));
-    }
-
-    private String estimateFinish(LocalDateTime startedAt, double totalMinutes) {
-        return estimateFinishTime(startedAt, totalMinutes).format(TIME_FMT);
-    }
 }
